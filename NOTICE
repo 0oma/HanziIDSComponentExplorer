@@ -1,0 +1,48 @@
+HanziIDSComponentExplorer
+Copyright 2026 TzuYuan Yin
+
+This product includes software developed by TzuYuan Yin.
+The source code is licensed under the Apache License, Version 2.0.
+
+================================================================================
+Third-Party Data Licenses
+================================================================================
+
+This plugin bundles pre-processed data from the following sources.
+Each data source retains its original license:
+
+Source      | License                                | Bundled As
+------------|----------------------------------------|--------------------
+CHISE IDS   | GNU General Public License v2.0 or     | ids.pdata
+            | later (GPL-2.0-or-later)               |
+------------|----------------------------------------|--------------------
+CNS11643    | 政府資料開放授權條款                      | ids.pdata (mapping)
+            | (Open Government Data License, Taiwan) |
+
+The file ids.pdata contains derivative data from the CHISE IDS database
+and is therefore subject to the terms of GPL-2.0-or-later.
+See LICENSES/GPL-2.0-or-later.txt for the full license text.
+
+================================================================================
+CHISE IDS
+================================================================================
+
+The IDS (Ideographic Description Sequence) data is derived from the
+CHISE IDS package (https://www.chise.org/ids/), licensed under
+GPL-2.0-or-later.
+
+The development of the CHISE IDS package was supported by the
+"Exploratory Software Project" of Information-technology Promotion
+Agency (IPA), Japan. Some data in the IDS files are derived and expanded
+from the CDP database developed by C.C. Hsieh and his team at Academia
+Sinica in Taipei, Taiwan.
+
+================================================================================
+CNS11643 全字庫
+================================================================================
+
+CNS11643 data is provided by the Ministry of Digital Affairs (數位發展部),
+Executive Yuan, Taiwan, under the Open Government Data License
+(政府資料開放授權條款).
+
+Source: https://data.gov.tw/dataset/5961

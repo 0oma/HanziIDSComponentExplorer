@@ -49,7 +49,11 @@ IDS 資料來自 [CHISE IDS database](https://www.chise.org/ids/) 的 CNS 及 Un
 
 ## 授權
 
-Apache License 2.0 — 詳見 [LICENSE](LICENSE)
+程式碼以 [Apache License 2.0](LICENSE) 授權。
+
+本外掛內含的 `ids.pdata` 為 [CHISE IDS](https://www.chise.org/ids/) 衍生資料，受 [GPL-2.0-or-later](LICENSES/GPL-2.0-or-later.txt) 約束。CNS11643 資料依[政府資料開放授權條款](https://data.gov.tw/license)使用。
+
+詳見 [NOTICE](NOTICE)。
 
 ## 作者
 
@@ -110,7 +114,11 @@ IDS data from [CHISE IDS database](https://www.chise.org/ids/) (CNS and Unicode)
 
 ## License
 
-Apache License 2.0 — See [LICENSE](LICENSE)
+Source code is licensed under [Apache License 2.0](LICENSE).
+
+The bundled `ids.pdata` is derived from the [CHISE IDS](https://www.chise.org/ids/) database and is subject to [GPL-2.0-or-later](LICENSES/GPL-2.0-or-later.txt). CNS11643 data is used under the [Open Government Data License, Taiwan](https://data.gov.tw/license).
+
+See [NOTICE](NOTICE) for details.
 
 ## Author
 
