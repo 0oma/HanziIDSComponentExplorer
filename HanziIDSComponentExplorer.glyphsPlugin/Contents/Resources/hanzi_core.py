@@ -13,6 +13,7 @@ import re
 import os
 import gzip
 import pickle
+import unicodedata
 from typing import Dict, List, Tuple, Union, Optional, Set
 from pathlib import Path
 
@@ -24,6 +25,24 @@ ERROR_SEARCH_FAILED = "搜尋失敗"
 
 # IDS 分隔字符 (Ideographic Description Characters)
 IDC_CHARS = '⿰⿱⿲⿳⿴⿵⿶⿷⿸⿹⿺⿻〾'
+
+# 應做 NFKC 正規化的 Unicode 區塊（CJK 相關變體）
+# 康熙部首 (2F00-2FD5): ⽊→木
+# CJK 相容字 BMP (F900-FAFF): 虜→虜
+# CJK 相容字補充 SIP (2F800-2FA1F): 巢(U+2F882)→巢(U+5DE2)
+_NFKC_RANGES = ((0x2F00, 0x2FD5), (0xF900, 0xFAFF), (0x2F800, 0x2FA1F))
+
+
+def _normalize_cjk_variant(char: str) -> str:
+    """將 CJK 相關 Unicode 變體正規化為統一字，非 CJK 變體保持原樣"""
+    if len(char) != 1:
+        return char
+    cp = ord(char)
+    if any(start <= cp <= end for start, end in _NFKC_RANGES):
+        normalized = unicodedata.normalize('NFKC', char)
+        if len(normalized) == 1:
+            return normalized
+    return char
 
 
 class HanziCore:
@@ -37,7 +56,9 @@ class HanziCore:
         data_path (str): IDS 資料庫檔案路徑（.pdata 格式）
         """
         self.data_path = self._resolve_path(data_path)
+        self._parsed_ids_cache: Dict[str, List[List[str]]] = {}
         self.db = self._load_database()
+        self._build_indexes()
 
     def _resolve_path(self, path: str) -> Path:
         """
@@ -88,7 +109,9 @@ class HanziCore:
 
     def _convert_format(self, pdata: Dict[str, Dict[str, Optional[str]]]) -> Dict[str, Dict[str, str]]:
         """
-        將新格式資料庫轉換為內部使用格式，保留所有 IDS 變體
+        將新格式資料庫轉換為內部使用格式
+
+        正規化 IDS 字串中的 CJK 變體，並清除正規化後重複的 ids_2。
 
         參數:
         pdata: 新格式資料庫
@@ -100,14 +123,54 @@ class HanziCore:
         converted_data = {}
 
         for char, data in pdata.items():
+            ids_1 = self._normalize_ids_string(data.get('ids_1', ''))
+            ids_2 = self._normalize_ids_string(data.get('ids_2', ''))
+            if ids_2 and ids_2 == ids_1:
+                ids_2 = ''
             converted_data[char] = {
                 'unicode': data.get('unicode', ''),
                 'char': char,
-                'ids_1': data.get('ids_1', ''),
-                'ids_2': data.get('ids_2', '')
+                'ids_1': ids_1,
+                'ids_2': ids_2,
             }
 
         return converted_data
+
+    @staticmethod
+    def _normalize_ids_string(ids: str) -> str:
+        """正規化 IDS 字串中的 CJK 變體字元"""
+        if not ids:
+            return ids or ''
+        return ''.join(_normalize_cjk_variant(ch) for ch in ids)
+
+    def _build_indexes(self):
+        """
+        載入後一次遍歷建立所有反向索引
+
+        建立：
+        - _unicode_index: unicode_hex → char 的反向映射
+        - _component_index: component_char → set of chars containing it
+        """
+        self._unicode_index: Dict[str, str] = {}
+        self._component_index: Dict[str, Set[str]] = {}
+
+        for char, data in self.db.items():
+            # Unicode 反向索引
+            unicode_hex = data.get('unicode')
+            if unicode_hex:
+                self._unicode_index[unicode_hex.upper()] = char
+
+            # 部件反向索引（含 NFKC 正規化）
+            for ids_key in ('ids_1', 'ids_2'):
+                ids_str = data.get(ids_key)
+                if not ids_str:
+                    continue
+                components = self.parse_ids(ids_str)[0]
+                for comp in components:
+                    if comp in IDC_CHARS or comp.startswith('&'):
+                        continue
+                    comp = _normalize_cjk_variant(comp)
+                    self._component_index.setdefault(comp, set()).add(char)
 
     # === 字符查詢 ===
 
@@ -148,10 +211,10 @@ class HanziCore:
             # 處理只有 u 前綴的情況
             normalized_code = normalized_code[1:]
 
-        # 在資料庫中搜尋匹配的 Unicode
-        for char, data in self.db.items():
-            if 'unicode' in data and data['unicode'].upper() == normalized_code:
-                return {char: data}
+        # 使用 Unicode 反向索引 O(1) 查表
+        char = self._unicode_index.get(normalized_code)
+        if char and char in self.db:
+            return {char: self.db[char]}
 
         return {}
 
@@ -168,10 +231,13 @@ class HanziCore:
         def split_special_chars(s):
             return re.findall(r'&[^;]+;|[⿰⿱⿲⿳⿴⿵⿶⿷⿸⿹⿺⿻〾]|\S', s)
 
-        if isinstance(ids, list):
-            return [split_special_chars(id_str) for id_str in ids]
-        else:
-            return [split_special_chars(ids)]
+        if isinstance(ids, str):
+            if ids in self._parsed_ids_cache:
+                return self._parsed_ids_cache[ids]
+            result = [split_special_chars(ids)]
+            self._parsed_ids_cache[ids] = result
+            return result
+        return [split_special_chars(id_str) for id_str in ids]
 
     # === 搜尋功能 ===
 
@@ -186,6 +252,18 @@ class HanziCore:
         回傳:
         List[str]: 包含該部件的字符列表
         """
+        # 快速路徑：單一字元且在部件反向索引中
+        normalized_query = _normalize_cjk_variant(query) if len(query) == 1 else query
+        if len(normalized_query) == 1 and normalized_query in self._component_index:
+            results = list(self._component_index[normalized_query])
+            # 確保查詢字元本身也在結果中（如果存在於資料庫）
+            if normalized_query in self.db and normalized_query not in results:
+                results.insert(0, normalized_query)
+            if charset is not None:
+                results = [c for c in results if c in charset]
+            return results
+
+        # 慢速路徑：Unicode 查詢等非標準情況
         results = []
         query_lower = query.lower()
 
@@ -203,14 +281,12 @@ class HanziCore:
             # 3. 檢查 IDS 結構中的部件（檢查所有變體）
             elif data.get('ids_1') or data.get('ids_2'):
                 try:
-                    # 收集所有 IDS 變體
                     ids_variants = []
                     if data.get('ids_1'):
                         ids_variants.append(data['ids_1'])
                     if data.get('ids_2'):
                         ids_variants.append(data['ids_2'])
 
-                    # 在所有變體中搜尋
                     for ids in ids_variants:
                         parsed_ids_list = self.parse_ids(ids)
                         for ids_sequence in parsed_ids_list:
@@ -223,7 +299,6 @@ class HanziCore:
                         if found:
                             break
                 except Exception:
-                    # 如果解析失敗，退回到字串搜尋
                     for ids in ids_variants:
                         if query_lower in ids.lower():
                             found = True
@@ -232,7 +307,6 @@ class HanziCore:
             if found:
                 results.append(char)
 
-        # 套用字符集篩選
         if charset is not None:
             results = [c for c in results if c in charset]
 
@@ -423,34 +497,40 @@ class HanziCore:
         initial_components = self.decompose(char, max_depth=1)
         process_component(char)
 
-        # 建立部件到字符的映射
-        for c, data in self.db.items():
-            if c == char:
-                continue
+        # 從反向索引收集候選字元（2 層查詢）
+        # Level 1: 直接包含 part 的字元
+        # Level 2: 包含「包含 part 的字元」作為部件的字元
+        candidates = set()
+        for part in decomposed_parts:
+            # 正規化 key 以匹配索引（索引建立時已對 CJK 變體做正規化）
+            lookup_key = _normalize_cjk_variant(part)
+            direct = self._component_index.get(lookup_key, set())
+            candidates.update(direct)
+            for intermediate in direct:
+                norm_inter = _normalize_cjk_variant(intermediate)
+                candidates.update(self._component_index.get(norm_inter, set()))
+        candidates.discard(char)
 
-            # 套用字符集篩選（提前過濾）
-            if charset is not None and c not in charset:
-                continue
+        if charset is not None:
+            candidates &= charset
 
+        # 只對候選字元做詳細比對
+        for c in candidates:
             try:
                 target_components = self.decompose(c, max_depth=1)
-                target_structure = ''.join(comp for _, comp in target_components)
 
-                matching_components = set()  # 記錄匹配的部件
+                matching_components = set()
 
-                # 檢查每個部件
                 for _, comp in target_components:
                     if comp in decomposed_parts and comp not in special_chars:
                         matching_components.add(comp)
                         continue
 
-                    # 遞迴檢查子部件
                     sub_comps = self.decompose(comp, max_depth=1)
                     for _, sub_comp in sub_comps:
                         if sub_comp in decomposed_parts and sub_comp not in special_chars:
                             matching_components.add(sub_comp)
 
-                # 將字符加入對應的部件群組
                 for matched_comp in matching_components:
                     if matched_comp not in derived_groups:
                         derived_groups[matched_comp] = []
