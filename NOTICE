@@ -1,8 +1,19 @@
 HanziIDSComponentExplorer
 Copyright 2026 TzuYuan Yin
 
-This product includes software developed by TzuYuan Yin.
-The source code is licensed under the Apache License, Version 2.0.
+This fork contains modifications copyright 2026 Ooma Kobayashi.
+Fork maintainer website: https://ooma.jp
+
+This product includes software originally developed by TzuYuan Yin.
+The source code, including fork modifications unless otherwise noted, is
+licensed under the Apache License, Version 2.0.
+
+Original source repository: https://github.com/yintzuyuan/HanziIDSComponentExplorer
+
+Apache License 2.0 section 4 requires modified files to carry prominent
+notices stating that they have been changed. Files in this fork may differ
+from the original upstream version. Original copyright, patent, trademark,
+and attribution notices are retained below where they pertain to this work.
 
 ================================================================================
 Third-Party Data Licenses

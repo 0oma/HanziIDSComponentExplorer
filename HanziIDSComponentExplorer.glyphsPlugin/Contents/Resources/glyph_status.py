@@ -2,6 +2,9 @@
 # -*- coding: utf-8 -*-
 """Shared glyph/tile status helpers for the GUI+ fork.
 
+Fork modifications copyright © 2026 Ooma Kobayashi.
+Modified from the original upstream project where applicable.
+
 This module intentionally has no GlyphsApp/AppKit dependency. The UI layer passes
 raw adapter status dictionaries in, and this module normalizes markers/counts so
 status logic stays consistent across result rows, summary text, text fallback, and

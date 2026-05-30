@@ -4,7 +4,9 @@
 Hanzi Component Explorer - Glyphs 適配層
 封裝所有 Glyphs API 呼叫，隔離 Glyphs 依賴
 
-© 2025 TzuYuan Yin
+Original copyright © 2025 TzuYuan Yin
+Fork modifications copyright © 2026 Ooma Kobayashi
+Modified from the original upstream project.
 """
 
 from __future__ import division, print_function, unicode_literals
