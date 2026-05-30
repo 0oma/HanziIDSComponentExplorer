@@ -5,6 +5,151 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.6.4-gui] - 2026-05-30
+
+### Changed
+
+- Simplified the visible plugin name to `Hanzi Component Explorer`.
+- Cleaned user-facing labels and hints so they describe current actions and status instead of development/version history.
+- Refined card and tile borders to a lighter, quieter appearance while keeping selection and status cues visible.
+
+### Verification
+
+- Core test suite passed.
+- Main plugin Python files syntax-checked.
+
+
+## [1.6.3-gui] - 2026-05-30
+
+### Added
+
+- **Responsive tiles** — right-pane object tiles now re-layout against the visible scroll width when the window is resized.
+- **Tile context menu** — right-click selected tiles to open in a new tab, insert, copy, copy Unicode values, search, or add/remove favorites.
+- **Designed-only filter** — added a single status filter to show only characters whose current-font glyph is already designed.
+
+### Changed
+
+- **Status display cleanup** — simplified the upper summary into focus/status, visible counts, active display mode, and legend lines.
+- **Left preview cleanup** — condensed the preview status into marker + status + glyph name, with Unicode/stroke metadata below.
+- **Tile layout robustness** — improved width measurement through the scroll view content width instead of relying only on the document view bounds.
+
+### Verification
+
+- Core test suite: 41 passed, 11 skipped.
+- `glyphs_ui.py`, `localization.py`, `glyphs_adapter.py`, `glyph_status.py`, and `plugin.py` syntax-checked with `py_compile`.
+
+
+## [1.6.2-gui] - 2026-05-30
+
+### Changed
+
+- **Modern connected decomposition tree** — Reworked `HanziCore.decompose()` to emit compact box-drawing connectors (`│`, `├─`, `└─`) that keep branches connected through deep decomposition.
+- **Tree-first center list** — Moved list preview badges from the row prefix to the row suffix, so decomposition branches stay visually aligned even when `● / ○ / – / ★` status display is enabled.
+- **Monospaced tree rows** — The center decomposition list now prefers the macOS monospaced system font for cleaner branch alignment, with the previous CJK-capable fallback retained.
+
+### Fixed / Cleaned
+
+- Updated character extraction to ignore modern tree connector glyphs and status markers.
+- Added regression tests for compact connected tree output and vertical continuation lines.
+
+### Verification
+
+- Core test suite: 41 passed, 11 skipped.
+- `hanzi_core.py`, `glyphs_ui.py`, `glyphs_adapter.py`, `localization.py`, `glyph_status.py`, and `plugin.py` syntax-checked with `py_compile`.
+
+## [1.6.1-gui] - 2026-05-30
+
+### Changed
+
+- **Status refactor** — Moved canonical glyph/tile status normalization into `glyph_status.py` so list rows, object tiles, text fallback, and summaries use the same `● / ○ / – / ★` logic.
+- **Cleaner summary layout** — Reorganized the top card into focus metadata, charset/favorites/related counts, mode state, and result status/progress.
+- **Status cache** — Added a per-render glyph status cache and status-count cache to reduce repeated Glyphs API lookups while rendering dense tile panes.
+- **Mode visibility** — Tile ON/OFF, density, glyph-preview state, and list-badge state are now always visible in the summary area.
+- **Selection visibility** — The summary line now shows total result characters, selected tiles, favorites, and designed percentage.
+
+### Fixed / Cleaned
+
+- Removed duplicated tile-geometry docstring.
+- Reduced duplicated glyph status checks across UI methods.
+
+### Verification
+
+- Core test suite: 39 passed, 11 skipped.
+- `glyphs_ui.py`, `glyphs_adapter.py`, `localization.py`, `glyph_status.py`, and `plugin.py` syntax-checked with `py_compile`.
+
+## [1.6.0-gui] - 2026-05-30
+
+### Added
+
+- **Object tile engine** — Replaced right-pane tile selection based on `NSTextView` ranges with semantic tile objects stored per character.
+- **Stable tile selection** — Click selection no longer collapses just because the view is clicked; Shift/Command-click supports multiple tile selection.
+- **Double-click open** — Single or multiple selected tile objects can be opened in a new Glyphs tab by double-clicking.
+- **Rich status badges** — Tile objects draw favorite/designed/exists/missing states as dedicated badges instead of plain status text.
+- **Optional glyph previews inside tiles** — Designed glyphs can be rendered as compact previews inside the tiles.
+- **Safe fallback path** — TextEditor rendering remains available when tile view is disabled or the object tile view cannot be created.
+
+### Verification
+
+- Core test suite: 39 passed, 11 skipped.
+- `glyphs_ui.py`, `glyphs_adapter.py`, `localization.py`, and `plugin.py` syntax-checked with `py_compile`.
+
+
+## [1.5.1-gui] - 2026-05-30
+
+### Added
+
+- **Tile double-click open** — Selecting one or more characters in the related-character tile pane and double-clicking now opens those glyphs in a new Glyphs edit tab.
+- **Selection normalization** — Tile status markers (`●`, `○`, `–`, `★`), labels, and separators are stripped before opening; only actual valid Hanzi characters are sent to Glyphs.
+- **Single-click fallback** — If nothing is selected, double-clicking near a tile attempts to open the character under the pointer.
+
+### Verification
+
+- Core test suite: 39 passed, 11 skipped.
+- `glyphs_ui.py`, `glyphs_adapter.py`, `localization.py`, and `plugin.py` syntax-checked with `py_compile`.
+
+
+## [1.5.0-gui] - 2026-05-30
+
+### Added
+
+- **Richer character tiles** — tile view now renders status-badged tokens such as `●字`, `○字`, `–字`, and `★字`.
+- **Tile density control** — added Compact, Comfortable, and Spacious tile density modes, available from the toolbar and filter menu.
+- **Production statistics** — the summary card now shows designed/empty/missing/favorite counts and designed percentage.
+- **Preview metadata** — the left preview now shows Unicode and stroke count below the design-status label.
+- **Richer tile styling** — tile markers, favorite characters, current character, and glyph-design states receive differentiated semantic colors and backgrounds.
+
+### Verification
+
+- Core test suite: 39 passed, 11 skipped.
+- `glyphs_ui.py`, `glyphs_adapter.py`, `localization.py`, and `plugin.py` syntax-checked with `py_compile`.
+
+## [1.4.1-gui] - 2026-05-30
+
+### Fixed
+
+- Fixed a crash when toggling deep decomposition. `refresh_ids_display()` incorrectly referenced an undefined local variable `char`; it now uses `self.current_char` through a local `focus_char`.
+
+### Verification
+
+- Core test suite: 39 passed, 11 skipped.
+- `glyphs_ui.py`, `glyphs_adapter.py`, and `localization.py` syntax-checked with `py_compile`.
+
+## [1.4.0-gui] - 2026-05-30
+
+### Added
+
+- **Character tile view** for the right related-character pane, with grouped tile rows.
+- **Designed glyph preview** in the left preview panel using the current Glyphs layer when outlines/components are present.
+- **List preview badges** in the middle list: `●` designed, `○` glyph exists but empty, `–` missing.
+- **View actions** in the filter menu for toggling tile view and list preview badges.
+- **Card-style layout** with a wider, cleaner three-pane workspace.
+- **Search history, favorites, characters-only copy, and bulk insert** actions integrated into the GUI+ workflow.
+
+### Verification
+
+- Core test suite: 39 passed, 11 skipped.
+- UI/resource files syntax-checked with `py_compile`.
+
 ## [1.1.1] - 2026-05-28
 
 ### Fixed

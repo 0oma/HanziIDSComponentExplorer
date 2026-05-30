@@ -757,7 +757,10 @@ class HanziCore:
         self, char: str, max_depth: int = 10, variant_index: int = 0
     ) -> List[Tuple[str, str]]:
         """
-        遞迴分解字符，顯示其結構（簡化版，不包含樹狀符號）
+        遞迴分解字符，回傳適合 UI 顯示的緊湊樹狀列表。
+
+        v1.6.2 起，樹線由「固定層級直線」改為依兄弟節點位置計算的
+        現代 box-drawing connector，避免深層拆解時分支線斷裂或多餘延伸。
 
         參數:
         char (str): 要分解的字符
@@ -767,102 +770,128 @@ class HanziCore:
         回傳:
         List[Tuple[str, str]]: 分解後的結構列表，每個元素是一個元組 (tree_symbol, content)
         """
-        return self._decompose_recursive(
-            char, level=0, deep=True, max_depth=max_depth, variant_index=variant_index
-        )
+        return self._decompose_modern_tree(char, max_depth=max_depth, variant_index=variant_index)
 
-    def _decompose_recursive(
-        self,
-        char: str,
-        level: int = 0,
-        deep: bool = False,
-        max_depth: int = 10,
-        variant_index: int = 0,
+    def _tree_prefix(self, ancestor_last_flags, is_last: bool) -> str:
+        """Return compact, connected tree prefix for one visible row."""
+        prefix = "".join("   " if last else "│  " for last in ancestor_last_flags)
+        return prefix + ("└─ " if is_last else "├─ ")
+
+    def _selected_ids_list_for_tree(self, char: str, variant_index: int) -> List[str]:
+        """Return IDS variants selected by UI variant_index with fallback rules."""
+        data = self.db.get(char)
+        if not data:
+            return []
+        ids_1 = data.get("ids_1") or ""
+        ids_2 = data.get("ids_2") or ""
+        if ids_2 == ids_1:
+            ids_2 = ""
+        if variant_index == -1:
+            return [ids for ids in (ids_1, ids_2) if ids]
+        if variant_index == 1:
+            return [ids_2 or ids_1] if (ids_2 or ids_1) else []
+        return [ids_1 or ids_2] if (ids_1 or ids_2) else []
+
+    def _ids_is_expandable(self, ids: str, char: str = "") -> bool:
+        """True when IDS actually describes a structure rather than a standalone char."""
+        if not ids or ids == char:
+            return False
+        return any(idc in ids for idc in IDC_CHARS)
+
+    def _decompose_modern_tree(
+        self, char: str, max_depth: int = 10, variant_index: int = 0
     ) -> List[Tuple[str, str]]:
-        """
-        遞迴分解字符的內部實作
-
-        參數:
-        char (str): 要分解的字符
-        level (int): 目前遞迴層級，用於縮排
-        deep (bool): 是否進行深度拆解
-        max_depth (int): 最大遞迴深度
-        variant_index (int): 使用第幾種拆法（0=ids_1, 1=ids_2, -1=全部顯示）
-
-        回傳:
-        List[Tuple[str, str]]: 分解後的結構列表
-        """
-        if level >= max_depth:
-            return [("｜   " * level + "└─ ", f"{char} (達到最大深度)")]
+        """Modern compact tree renderer used by decompose()."""
+        if not char:
+            return []
 
         data = self.db.get(char)
         if not data:
-            return [("" if level == 0 else "｜   " * (level - 1) + "└─ ", char)]
+            return [("", char)]
 
-        # 根據 variant_index 收集 IDS 變體
-        ids_list = []
-        if variant_index == -1:
-            # 顯示所有拆法
-            if data.get("ids_1"):
-                ids_list.append(data["ids_1"])
-            if data.get("ids_2"):
-                ids_list.append(data["ids_2"])
-        elif variant_index == 0:
-            # 顯示第一種拆法
-            if data.get("ids_1"):
-                ids_list.append(data["ids_1"])
-            elif data.get("ids_2"):  # 如果沒有 ids_1，使用 ids_2
-                ids_list.append(data["ids_2"])
-        elif variant_index == 1:
-            # 顯示第二種拆法
-            if data.get("ids_2"):
-                ids_list.append(data["ids_2"])
-            elif data.get("ids_1"):  # 如果沒有 ids_2，使用 ids_1
-                ids_list.append(data["ids_1"])
-
+        ids_list = [ids for ids in self._selected_ids_list_for_tree(char, variant_index) if ids]
+        ids_list = [ids for ids in ids_list if self._ids_is_expandable(ids, char)]
         if not ids_list:
-            return [("" if level == 0 else "｜   " * (level - 1) + "└─ ", char)]
+            return [("", char)]
 
-        # 檢查是否為獨體字（沒有 IDC 字符）
-        if all(idc not in ids for ids in ids_list for idc in IDC_CHARS):
-            return [("" if level == 0 else "｜   " * (level - 1) + "└─ ", char)]
-
-        result = [("", char)]
-
+        result: List[Tuple[str, str]] = [("", char)]
         for idx, ids in enumerate(ids_list):
-            # 如果 IDS 只是字符本身（無拆解），直接顯示不再展開
-            if ids == char:
-                result.append(("｜   " * level, char))
-                # 如果後面還有其他拆法，添加分隔符
-                if idx < len(ids_list) - 1:
-                    result.append(("｜   " * level, "或"))
+            self._append_ids_tree_lines(
+                result=result,
+                owner_char=char,
+                ids=ids,
+                ancestor_last_flags=[],
+                is_last=(idx == len(ids_list) - 1),
+                depth=0,
+                max_depth=max_depth,
+                variant_index=variant_index,
+            )
+        return result
+
+    def _append_ids_tree_lines(
+        self,
+        result: List[Tuple[str, str]],
+        owner_char: str,
+        ids: str,
+        ancestor_last_flags,
+        is_last: bool,
+        depth: int,
+        max_depth: int,
+        variant_index: int,
+    ) -> None:
+        """Append one IDS operator node and all child components with connected branches."""
+        if not ids:
+            return
+
+        parsed = self.parse_ids(ids)[0]
+        if not parsed:
+            return
+
+        operator = parsed[0]
+        components = parsed[1:]
+        if operator not in IDC_CHARS:
+            # Defensive fallback for unusual records; keep the UI compact.
+            result.append((self._tree_prefix(ancestor_last_flags, is_last), ids))
+            return
+
+        result.append((self._tree_prefix(ancestor_last_flags, is_last), operator))
+
+        child_ancestors = list(ancestor_last_flags) + [is_last]
+        for comp_index, comp in enumerate(components):
+            comp_is_last = comp_index == len(components) - 1
+            comp_prefix = self._tree_prefix(child_ancestors, comp_is_last)
+            result.append((comp_prefix, comp))
+
+            if (
+                depth + 1 >= max_depth
+                or not comp
+                or comp.startswith("&")
+                or comp in IDC_CHARS
+            ):
+                # At max depth we stop cleanly at the component row rather than
+                # adding a duplicate "reached max depth" child, keeping the list compact.
                 continue
 
-            result.append(("｜   " * level, ids[0]))
+            sub_ids_list = [
+                sub_ids
+                for sub_ids in self._selected_ids_list_for_tree(comp, variant_index)
+                if self._ids_is_expandable(sub_ids, comp)
+            ]
+            if not sub_ids_list:
+                continue
 
-            components = self.parse_ids(ids)[0][1:]
-            for i, comp in enumerate(components):
-                is_last = i == len(components) - 1
-                prefix = "｜   " * level + ("└─ " if is_last else "├─ ")
-
-                if deep and not comp.startswith("&") and comp not in IDC_CHARS:
-                    sub_data = self.db.get(comp)
-                    if sub_data and (sub_data.get("ids_1") or sub_data.get("ids_2")):
-                        result.append((prefix, comp))
-                        sub_result = self._decompose_recursive(
-                            comp, level + 1, deep, max_depth, variant_index
-                        )
-                        result.extend(sub_result[1:])
-                    else:
-                        result.append((prefix, comp))
-                else:
-                    result.append((prefix, comp))
-
-            # 在完成當前 IDS 的所有內容後，如果後面還有其他拆法，添加分隔符
-            if idx < len(ids_list) - 1:
-                result.append(("｜   " * level, "或"))
-
-        return result
+            sub_ancestors = child_ancestors + [comp_is_last]
+            for sub_index, sub_ids in enumerate(sub_ids_list):
+                self._append_ids_tree_lines(
+                    result=result,
+                    owner_char=comp,
+                    ids=sub_ids,
+                    ancestor_last_flags=sub_ancestors,
+                    is_last=(sub_index == len(sub_ids_list) - 1),
+                    depth=depth + 1,
+                    max_depth=max_depth,
+                    variant_index=variant_index,
+                )
 
     # === IDS 變體管理 ===
 
@@ -986,7 +1015,7 @@ class HanziCore:
 
         # 處理樹狀結構格式（如 "｜   └─ 王"）
         # 移除樹狀結構符號
-        tree_symbols = ["｜", "├─", "└─", " "]
+        tree_symbols = ["｜", "│", "├─", "└─", "├", "└", "─", " ", "●", "○", "–", "★"]
         cleaned = text
         for symbol in tree_symbols:
             cleaned = cleaned.replace(symbol, " ")

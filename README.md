@@ -1,45 +1,52 @@
-[繁體中文](#漢字-ids-部件查詢) | [English](#hanzi-ids-component-explorer)
+[中文](#中文) | [English](#english) | [日本語](#日本語)
 
 ---
 
-# 漢字 IDS 部件查詢
+# 中文
 
-[Glyphs](https://glyphsapp.com/) 字型編輯器外掛，用於拆解漢字結構並查詢相關字符。
+# 漢字部件查詢
+
+[Glyphs](https://glyphsapp.com/) 字型編輯器外掛，用於拆解漢字 IDS 結構、查詢相關字符，並在 Glyphs 目前開啟的字型檔中確認製作狀態。
 
 <p align="center">
-  <img src="screenshot.png" alt="截圖" width="500">
+  <img src="screenshot.png" alt="漢字部件查詢截圖" width="500">
 </p>
 
-## 功能
+## 主要功能
 
-- **字符拆解** — 輸入漢字，視覺化顯示其部件樹狀結構
-- **多部件組合搜尋** — 輸入多個部件（如「氵木」）找出同時包含所有部件的字；採遞迴比對（部件藏在更深層也算，如「淋」含「木」），可再拆的中間部件也能當查詢詞（如「立里」找到「童」、「火林」找到「焚」），重複部件代表「至少 N 個」（如「木木」找含兩個以上木的字）
-- **同字根查詢** — 找出與本字結構相同的關聯字
-- **衍生字查詢** — 找出以本字為部件的衍生字
-- **字集篩選** — 預設顯示字型檔內的字，亦可使用自訂字集
-- **顏色篩選** — 依 Glyphs 顏色標籤過濾結果
-- **筆畫數篩選** — 用底部滑桿選擇 ±0/±1/±2/±3/±5 筆畫差，快速從相關字中找到筆畫接近主字的造字參考（資料源自 CNS11643）
-- **全字庫連結** — 一鍵查詢 CNS11643 全字庫資料
+- **漢字拆解** — 顯示漢字的 IDS 部件結構，支援簡潔的連線式樹狀圖。
+- **多部件搜尋** — 輸入多個部件，例如「氵木」，找出同時包含這些部件的字。搜尋會遞迴比對深層部件，也支援可再拆的中間部件，例如「立里」可找到「童」。
+- **相關字查詢** — 顯示同結構字、衍生字，以及和目前字符相關的其他字符。
+- **字集篩選** — 可限制結果只顯示目前字型檔中的字符，或使用自訂字集。
+- **製作狀態顯示** — 在列表與右側字磚中標示目前字型檔內的狀態：`●` 已製作、`○` 已有 glyph 但尚未製作、`–` 未建立、`★` 收藏。
+- **自動折行字磚** — 右側相關字以字磚顯示，會依視窗寬度自動換行。
+- **字磚操作** — 支援單選、多選、雙擊開啟新分頁、右鍵選單、複製、插入目前分頁、Unicode 複製與收藏。
+- **Glyphs 預覽** — 若目前字型檔已有實際內容，可在左側或字磚內顯示該 glyph 的預覽。
+- **只顯示已製作字符** — 可只顯示已完成內容的字符，方便檢查或整理進度。
+- **筆畫數篩選** — 可依 CNS11643 筆畫資料，以目前字符或多部件總筆畫為基準縮小結果範圍。
+- **搜尋履歷與收藏** — 可重複使用最近搜尋，並把常用字符加入收藏。
+- **CNS11643 連結** — 可快速開啟全字庫查詢頁面。
 
 ## 安裝
 
-### 外掛程式管理員（推薦）
-
-1. *視窗 > 外掛程式管理員*
-2. 搜尋「HanziIDSComponentExplorer」
-3. 點擊 *安裝*
-4. 重新啟動 Glyphs
-
 ### 手動安裝
 
-下載 `HanziIDSComponentExplorer.glyphsPlugin`，雙擊安裝。
+1. 下載 `HanziIDSComponentExplorer.glyphsPlugin`。
+2. 雙擊外掛檔案進行安裝。
+3. 重新啟動 Glyphs。
+4. 從 *視窗 > 漢字部件查詢* 開啟。
+
+### 外掛程式管理員
+
+若此外掛已加入 Glyphs 外掛程式管理員，可從 *視窗 > 外掛程式管理員* 搜尋並安裝。
 
 ## 使用方式
 
-1. *視窗 > 漢字 IDS 部件查詢* 開啟視窗
-2. 在搜尋欄輸入漢字（如「森」）或 Unicode（如「68EE」）
-3. 查看拆解結果、同字根、衍生字
-4. 輸入多個部件（如「氵木」）搜尋同時包含所有部件的字：中欄列出輸入部件、右欄列出符合的字；此時筆畫篩選以各部件筆畫加總為基準（如「氵木」= 7 畫）
+1. 開啟 *視窗 > 漢字部件查詢*。
+2. 在搜尋欄輸入漢字，例如「森」，或輸入 Unicode，例如「68EE」。
+3. 左側查看目前字符與製作狀態，中間查看 IDS 樹狀拆解，右側查看相關字磚。
+4. 輸入多個部件，例如「氵木」，即可搜尋同時包含所有部件的字符。
+5. 在右側字磚中選取一個或多個字符，雙擊可在 Glyphs 新分頁開啟；右鍵可使用複製、插入、收藏等操作。
 
 ## 系統需求
 
@@ -48,8 +55,8 @@
 
 ## 資料來源
 
-- **IDS 拆解資料** — [CHISE IDS database](https://www.chise.org/ids/) 的 CNS 及 Unicode 資料，收錄超過 10 萬個字符
-- **筆畫數資料** — [CNS11643-OpenData](https://github.com/yintzuyuan/CNS11643-OpenData) 的 `Tables/Properties/CNS_stroke.txt`，覆蓋約 7.7 萬字（74.8%）。超出 CNS 範圍的 Ext-G/H 罕字筆畫為空，僅在「關閉筆畫篩選」時顯示
+- **IDS 拆解資料** — [CHISE IDS database](https://www.chise.org/ids/) 的 CNS 與 Unicode 資料，收錄超過 10 萬個字符。
+- **筆畫數資料** — [CNS11643-OpenData](https://github.com/yintzuyuan/CNS11643-OpenData) 的 `Tables/Properties/CNS_stroke.txt`。
 
 ## 授權
 
@@ -59,84 +66,155 @@
 
 詳見 [NOTICE](NOTICE)。
 
-## 作者
+## 作者與致謝
 
 **殷慈遠 TzuYuan Yin** — [erikyin.net](https://erikyin.net)
 
-## 致謝
-
-- [CHISE Project](https://www.chise.org/) — IDS 資料庫
-- [全字庫](https://www.cns11643.gov.tw/) — 字形資料參考
-- [3type/EOD 拆字小組](https://github.com/3type/EOD) — 資料格式啟發
+感謝 [CHISE Project](https://www.chise.org/)、[全字庫](https://www.cns11643.gov.tw/) 與 [3type/EOD](https://github.com/3type/EOD)。
 
 ---
 
-# Hanzi IDS Component Explorer
+# English
 
-A [Glyphs](https://glyphsapp.com/) font editor plugin for decomposing Chinese characters and exploring related glyphs.
+# Hanzi Component Explorer
+
+A [Glyphs](https://glyphsapp.com/) plugin for decomposing Hanzi IDS structures, exploring related characters, and checking production status in the currently open Glyphs font.
 
 <p align="center">
-  <img src="screenshot.png" alt="Screenshot" width="500">
+  <img src="screenshot.png" alt="Hanzi Component Explorer screenshot" width="500">
 </p>
 
 ## Features
 
-- **Character Decomposition** — Visualize the component tree structure of any Chinese character
-- **Multi-Component Search** — Enter multiple components (e.g. "氵木") to find characters containing all of them; uses recursive matching (a component nested deeper still counts, e.g. "淋" contains "木"), decomposable intermediate components also work as queries (e.g. "立里" finds "童", "火林" finds "焚"), and repeated components mean "at least N" (e.g. "木木" finds characters with two or more 木)
-- **Sister Characters** — Find characters sharing the same structure
-- **Derived Characters** — Find characters using this character as a component
-- **Charset Filtering** — Filter by current font glyphs or custom charset
-- **Color Filtering** — Filter by Glyphs color labels
-- **Stroke Count Filtering** — Discrete bottom slider (±0/±1/±2/±3/±5) to narrow related characters by stroke count difference from the current character (data from CNS11643)
-- **CNS Link** — Quick lookup in CNS11643 database
+- **Character decomposition** — View IDS component structures with a compact connected tree display.
+- **Multi-component search** — Enter components such as “氵木” to find characters that contain all of them. Matching is recursive, so nested components count; decomposable intermediate components also work, for example “立里” can find “童”.
+- **Related character lookup** — Browse characters with the same structure, derived characters, and other characters related to the current glyph.
+- **Charset filtering** — Limit results to the current font or use a custom character set.
+- **Production status** — Lists and tiles show the current font status: `●` designed, `○` glyph exists but is empty, `–` missing, and `★` favorite.
+- **Responsive character tiles** — Related characters are shown as tiles that wrap automatically to the window width.
+- **Tile actions** — Select one or more tiles, double-click to open them in a new Glyphs tab, or use the context menu to copy, insert, copy Unicode, search, or favorite them.
+- **Glyph previews** — When the current font already contains outlines or components, the plugin can show a preview in the left pane and, optionally, inside tiles.
+- **Designed-only filter** — Show only characters that already have glyph content in the current font.
+- **Stroke count filtering** — Narrow related results using CNS11643 stroke-count data, based on the current character or the total stroke count of a multi-component query.
+- **Search history and favorites** — Reuse recent searches and keep frequently used characters as favorites.
+- **CNS11643 lookup** — Open the corresponding CNS11643 reference page quickly.
 
 ## Installation
 
-### Plugin Manager (Recommended)
+### Manual installation
 
-1. *Window > Plugin Manager*
-2. Search for "HanziIDSComponentExplorer"
-3. Click *Install*
-4. Restart Glyphs
+1. Download `HanziIDSComponentExplorer.glyphsPlugin`.
+2. Double-click the plugin file to install it.
+3. Restart Glyphs.
+4. Open it from *Window > Hanzi Component Explorer*.
 
-### Manual Installation
+### Plugin Manager
 
-Download `HanziIDSComponentExplorer.glyphsPlugin` and double-click to install.
+If the plugin is available in Glyphs Plugin Manager, install it from *Window > Plugin Manager*.
 
 ## Usage
 
-1. Open *Window > HanziIDSComponentExplorer*
-2. Enter a Chinese character (e.g., "森") or Unicode (e.g., "68EE")
-3. View decomposition, sister characters, and derived characters
-4. Enter multiple components (e.g. "氵木") to find characters containing all of them: the middle column lists the input components, the right column lists the matches; stroke filtering then uses the sum of the components' stroke counts as the baseline (e.g. "氵木" = 7 strokes)
+1. Open *Window > Hanzi Component Explorer*.
+2. Enter a Hanzi character, such as “森”, or a Unicode value, such as “68EE”.
+3. Use the left pane for the current character and production status, the middle pane for IDS decomposition, and the right pane for related character tiles.
+4. Enter multiple components, such as “氵木”, to find characters containing all of them.
+5. Select one or more right-side tiles and double-click to open them in a new Glyphs tab. Right-click for copy, insert, Unicode, search, and favorite actions.
 
 ## Requirements
 
-- Glyphs 3.0+
-- macOS 10.9+
+- Glyphs 3.0 or later
+- macOS 10.9 or later
 
-## Data Sources
+## Data sources
 
-- **IDS decomposition** — [CHISE IDS database](https://www.chise.org/ids/) (CNS and Unicode), covering over 100,000 characters
-- **Stroke counts** — `Tables/Properties/CNS_stroke.txt` from [CNS11643-OpenData](https://github.com/yintzuyuan/CNS11643-OpenData), covering ~77k characters (74.8%). Characters outside CNS11643 (Ext-G/H rare ideographs) have no stroke data and are only shown when stroke filtering is OFF
+- **IDS decomposition data** — CNS and Unicode data from the [CHISE IDS database](https://www.chise.org/ids/), covering more than 100,000 characters.
+- **Stroke-count data** — `Tables/Properties/CNS_stroke.txt` from [CNS11643-OpenData](https://github.com/yintzuyuan/CNS11643-OpenData).
 
 ## License
 
-Source code is licensed under [Apache License 2.0](LICENSE).
+Source code is licensed under the [Apache License 2.0](LICENSE).
 
 The bundled `ids.pdata` is derived from the [CHISE IDS](https://www.chise.org/ids/) database and is subject to [GPL-2.0-or-later](LICENSES/GPL-2.0-or-later.txt). CNS11643 data is used under the [Open Government Data License, Taiwan](https://data.gov.tw/license).
 
 See [NOTICE](NOTICE) for details.
 
-## Author
+## Author and acknowledgments
 
 **TzuYuan Yin** — [erikyin.net](https://erikyin.net)
 
-## Acknowledgments
+Thanks to the [CHISE Project](https://www.chise.org/), [CNS11643](https://www.cns11643.gov.tw/), and [3type/EOD](https://github.com/3type/EOD).
 
-- [CHISE Project](https://www.chise.org/) — IDS database
-- [CNS11643 全字庫](https://www.cns11643.gov.tw/) — Glyph data reference
-- [3type/EOD](https://github.com/3type/EOD) — Data format inspiration
+---
+
+# 日本語
+
+# 漢字部品検索
+
+[Glyphs](https://glyphsapp.com/) 用のプラグインです。漢字の IDS 構造を分解し、関連字を検索しながら、現在開いている Glyphs フォント内での制作状況を確認できます。
+
+<p align="center">
+  <img src="screenshot.png" alt="漢字部品検索のスクリーンショット" width="500">
+</p>
+
+## 主な機能
+
+- **漢字の分解表示** — IDS に基づく部品構造を、コンパクトな接続型ツリーで表示します。
+- **複数部品検索** — 「氵木」のように複数の部品を入力し、それらをすべて含む字を検索できます。深い階層にある部品も対象になり、「立里」から「童」を見つけるような中間部品検索にも対応します。
+- **関連字の検索** — 同じ構造の字、現在の字を部品として含む派生字、そのほか構造的に関連する字を確認できます。
+- **字集合フィルター** — 現在のフォントに含まれる字、または任意のカスタム字集合に結果を絞り込めます。
+- **制作状況の表示** — 一覧とタイルに、現在のフォント内での状態を表示します：`●` 制作済み、`○` glyph はあるが未制作、`–` 未作成、`★` お気に入り。
+- **自動折り返しタイル** — 右ペインの関連字をタイルで表示し、ウィンドウ幅に合わせて自動で折り返します。
+- **タイル操作** — 単体選択・複数選択・ダブルクリックでの新規タブ展開・右クリックメニュー・コピー・挿入・Unicodeコピー・お気に入り登録に対応します。
+- **Glyphsプレビュー** — 現在のフォントにアウトラインやコンポーネントがある場合、左ペインやタイル内に実際の glyph プレビューを表示できます。
+- **制作済みのみ表示** — 現在のフォントで制作済みの字だけを表示できます。
+- **画数フィルター** — CNS11643 の画数データを使い、現在字または複数部品検索時の合計画数を基準に結果を絞り込めます。
+- **検索履歴とお気に入り** — 最近の検索を再利用し、よく使う字をお気に入りとして保存できます。
+- **CNS11643 連携** — 対応する全字庫ページをすばやく開けます。
+
+## インストール
+
+### 手動インストール
+
+1. `HanziIDSComponentExplorer.glyphsPlugin` をダウンロードします。
+2. プラグインファイルをダブルクリックしてインストールします。
+3. Glyphs を再起動します。
+4. *ウィンドウ > 漢字部品検索* から開きます。
+
+### プラグインマネージャー
+
+Glyphs のプラグインマネージャーに登録されている場合は、*ウィンドウ > プラグインマネージャー* から検索してインストールできます。
+
+## 使い方
+
+1. *ウィンドウ > 漢字部品検索* を開きます。
+2. 「森」のような漢字、または「68EE」のような Unicode を検索欄に入力します。
+3. 左ペインで現在字と制作状況、中ペインで IDS 分解、右ペインで関連字タイルを確認します。
+4. 「氵木」のように複数部品を入力すると、それらをすべて含む字を検索できます。
+5. 右ペインのタイルを1つまたは複数選択し、ダブルクリックすると Glyphs の新規タブで開きます。右クリックからコピー、挿入、Unicodeコピー、検索、お気に入り操作もできます。
+
+## 動作環境
+
+- Glyphs 3.0 以降
+- macOS 10.9 以降
+
+## データソース
+
+- **IDS分解データ** — [CHISE IDS database](https://www.chise.org/ids/) の CNS および Unicode データ。10万字以上を収録しています。
+- **画数データ** — [CNS11643-OpenData](https://github.com/yintzuyuan/CNS11643-OpenData) の `Tables/Properties/CNS_stroke.txt`。
+
+## ライセンス
+
+ソースコードは [Apache License 2.0](LICENSE) でライセンスされています。
+
+同梱の `ids.pdata` は [CHISE IDS](https://www.chise.org/ids/) 由来のデータで、[GPL-2.0-or-later](LICENSES/GPL-2.0-or-later.txt) の対象です。CNS11643 データは [台湾政府資料開放授權條款](https://data.gov.tw/license) に基づいて使用しています。
+
+詳しくは [NOTICE](NOTICE) を参照してください。
+
+## 作者・謝辞
+
+**TzuYuan Yin / 殷慈遠** — [erikyin.net](https://erikyin.net)
+
+[CHISE Project](https://www.chise.org/)、[全字庫 CNS11643](https://www.cns11643.gov.tw/)、[3type/EOD](https://github.com/3type/EOD) に感謝します。
 
 ---
 

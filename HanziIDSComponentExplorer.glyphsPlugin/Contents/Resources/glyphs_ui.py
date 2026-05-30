@@ -1,4 +1,4 @@
-# MenuTitle: 漢字IDS部件查詢
+# MenuTitle: 漢字部品検索
 # -*- coding: utf-8 -*-
 """
 Hanzi Component Explorer - Glyphs UI 層
@@ -21,6 +21,7 @@ from AppKit import (
     NSMutableAttributedString,
     NSFontAttributeName,
     NSForegroundColorAttributeName,
+    NSBackgroundColorAttributeName,
     NSKernAttributeName,
     NSParagraphStyleAttributeName,
     NSBaselineOffsetAttributeName,
@@ -30,14 +31,36 @@ from AppKit import (
     NSObject,
     NSImage,
     NSNotificationCenter,
+    NSPasteboard,
     NSTableViewNoColumnAutoresizing,
     NSLineBreakByClipping,
+    NSBoxCustom,
+    NSClickGestureRecognizer,
+    NSView,
+    NSScrollView,
+    NSMakeRect,
+    NSMakeSize,
+    NSBezierPath,
+    NSCompositeSourceOver,
+    NSViewWidthSizable,
+    NSViewHeightSizable,
 )
 import CoreText
 
 from hanzi_core import HanziCore, is_complete_search_input
 from glyphs_adapter import GlyphsAdapter, GlyphsSettings
 from localization import L
+from glyph_status import (
+    STATUS_DESIGNED,
+    STATUS_EXISTS,
+    STATUS_MISSING,
+    STATUS_FAVORITE,
+    STATUS_MARKERS,
+    status_payload,
+    count_statuses,
+    designed_percent,
+    unique_related_chars,
+)
 
 
 # 字體大小設定
@@ -92,6 +115,67 @@ class _FilterMenuHandlerBase(NSObject):
     def selectCustomCharset_(self, sender):
         self.tool.selectCustomCharset()
 
+    def selectRecentSearch_(self, sender):
+        query = sender.representedObject()
+        if query:
+            self.tool.run_recent_search(str(query))
+
+    def clearHistory_(self, sender):
+        self.tool.clear_recent_queries()
+
+    def selectFavorite_(self, sender):
+        char = sender.representedObject()
+        if char:
+            self.tool.run_favorite_search(str(char))
+
+    def clearFavorites_(self, sender):
+        self.tool.clear_favorites()
+
+    def toggleCurrentFavorite_(self, sender):
+        self.tool.toggle_current_favorite()
+
+    def copyRelatedCharsOnly_(self, sender):
+        self.tool.copy_related_chars_only(None)
+
+    def insertAllRelated_(self, sender):
+        self.tool.insert_all_related(None)
+
+    def toggleTileView_(self, sender):
+        self.tool.toggle_tile_view(None)
+
+    def toggleListPreview_(self, sender):
+        self.tool.toggle_list_preview(None)
+
+    def cycleTileDensity_(self, sender):
+        self.tool.cycle_tile_density(None)
+
+    def toggleTileGlyphPreview_(self, sender):
+        self.tool.toggle_tile_glyph_preview(None)
+
+    def toggleDesignedOnly_(self, sender):
+        self.tool.toggle_designed_only(None)
+
+    def openSelectedTiles_(self, sender):
+        self.tool.open_selected_related_tile_objects()
+
+    def insertSelectedTiles_(self, sender):
+        self.tool.insert_selected_related_tiles(None)
+
+    def copySelectedTiles_(self, sender):
+        self.tool.copy_selected_related_tiles(None)
+
+    def copySelectedTileUnicode_(self, sender):
+        self.tool.copy_selected_tile_unicode(None)
+
+    def searchSelectedTile_(self, sender):
+        self.tool.search_selected_tile(None)
+
+    def addSelectedTilesToFavorites_(self, sender):
+        self.tool.add_selected_tiles_to_favorites(None)
+
+    def removeSelectedTilesFromFavorites_(self, sender):
+        self.tool.remove_selected_tiles_from_favorites(None)
+
 
 # 使用動態名稱避免重複定義
 FilterMenuHandler = type(filter_handler_class_name, (_FilterMenuHandlerBase,), {})
@@ -131,6 +215,100 @@ SelectionObserverHandler = type(
 )
 
 
+# 右側タイル/関連字ペインのダブルクリック処理器
+related_double_click_handler_class_name = f"RelatedDoubleClickHandler_{int(time.time() * 1000)}"
+
+RelatedDoubleClickHandler = type(
+    related_double_click_handler_class_name,
+    (NSObject,),
+    {
+        "initWithTool_": lambda self, tool: setattr(self, "tool", tool) or self,
+        "handleRelatedDoubleClick_": lambda self, gesture: (
+            self.tool.open_selected_related_glyphs_in_new_tab(gesture)
+        ),
+    },
+)
+
+
+# 独自タイルエンジンの描画ビュー。NSTextViewの選択挙動から独立させる。
+related_tile_view_class_name = f"RelatedTileObjectView_{int(time.time() * 1000)}"
+
+
+def _related_tile_initWithTool_(self, tool):
+    self = self.init()
+    self.tool = tool
+    return self
+
+
+def _related_tile_isFlipped(self):
+    return True
+
+
+def _related_tile_acceptsFirstResponder(self):
+    return True
+
+
+def _related_tile_drawRect_(self, rect):
+    try:
+        self.tool.draw_related_tile_objects(self, rect)
+    except Exception:
+        import traceback
+        print(traceback.format_exc())
+
+
+def _related_tile_mouseDown_(self, event):
+    try:
+        try:
+            self.window().makeFirstResponder_(self)
+        except Exception:
+            pass
+        point = self.convertPoint_fromView_(event.locationInWindow(), None)
+        self.tool.handle_related_tile_mouse_down(self, event, point)
+    except Exception:
+        import traceback
+        print(traceback.format_exc())
+
+
+def _related_tile_rightMouseDown_(self, event):
+    try:
+        try:
+            self.window().makeFirstResponder_(self)
+        except Exception:
+            pass
+        point = self.convertPoint_fromView_(event.locationInWindow(), None)
+        self.tool.handle_related_tile_right_mouse_down(self, event, point)
+    except Exception:
+        import traceback
+        print(traceback.format_exc())
+
+
+RelatedTileObjectView = type(
+    related_tile_view_class_name,
+    (NSView,),
+    {
+        "initWithTool_": _related_tile_initWithTool_,
+        "isFlipped": _related_tile_isFlipped,
+        "acceptsFirstResponder": _related_tile_acceptsFirstResponder,
+        "drawRect_": _related_tile_drawRect_,
+        "mouseDown_": _related_tile_mouseDown_,
+        "rightMouseDown_": _related_tile_rightMouseDown_,
+    },
+)
+
+
+# ウィンドウ幅変更時にタイルを再レイアウトするための軽量通知ハンドラ
+resize_observer_class_name = f"WindowResizeObserverHandler_{int(time.time() * 1000)}"
+
+ResizeObserverHandler = type(
+    resize_observer_class_name,
+    (NSObject,),
+    {
+        "initWithTool_": lambda self, tool: setattr(self, "tool", tool) or self,
+        "windowDidResize_": lambda self, notification: self.tool.on_window_resized(notification),
+    },
+)
+
+
 class HanziComponentSearchTool:
     """Glyphs 外掛主視窗"""
 
@@ -151,6 +329,33 @@ class HanziComponentSearchTool:
         self.all_results = []  # 存儲 (tree, content) 格式的原始結果
         self.display_results = []  # 存儲顯示用的字符串
         self.current_char = None
+        self.last_related_text = ""
+        self.last_result_count = 0
+        self._glyph_status_cache = {}
+        self._status_counts_cache_key = None
+        self._status_counts_cache_value = None
+        self.relatedDoubleClickRecognizer = None
+        self.resizeObserver = None
+        self.last_related_selection_chars = ""
+        self.last_related_multi_selection_chars = ""
+        self.last_related_multi_selection_time = 0
+        self.recent_queries = list(self.settings.get("recentQueries", []) or [])[:12]
+        self.favorite_chars = list(self.settings.get("favoriteChars", []) or [])[:64]
+        self.tile_view_enabled = bool(self.settings.get("tileViewEnabled", True))
+        self.list_preview_enabled = bool(self.settings.get("listPreviewEnabled", True))
+        self.tile_glyph_preview_enabled = bool(self.settings.get("tileGlyphPreviewEnabled", False))
+        self.show_designed_only = bool(self.settings.get("showDesignedOnly", False))
+        self.related_tile_items = []
+        self.related_tile_selection = set()
+        self.related_tile_anchor_index = None
+        self.related_tile_layout_width = 0
+        self.related_tile_content_height = 1
+        self.relatedTileScrollView = None
+        self.relatedTileView = None
+        self.tile_density = self.settings.get("tileDensity", "comfortable")
+        if self.tile_density not in ("compact", "comfortable", "spacious"):
+            self.tile_density = "comfortable"
+        self.visual_effects_enabled = bool(self.settings.get("visualEffectsEnabled", True))
         self.deep_analysis = self.settings.get("deepAnalysis", False)
         self.show_derived = False
 
@@ -187,21 +392,75 @@ class HanziComponentSearchTool:
         # === 建立主視窗 ===
         window_title = title or L("window_title")
         self.w = vanilla.FloatingWindow(
-            (520, 440),
+            (880, 640),
             window_title,
-            minSize=(420, 300),
-            maxSize=(1000, 1000),
-            autosaveName="com.YinTzuYuan.HanziIDSComponentExplorer.MainWindow",
+            minSize=(720, 500),
+            maxSize=(1600, 1200),
+            autosaveName="com.HanziIDSComponentExplorer.GUIEnhancedFork.MainWindow",
         )
 
         # === 頂部搜尋區域 ===
         self.w.inputText = vanilla.SearchBox(
-            (12, 12, -40, 22),  # 縮短右側，為插入按鈕留空間（24px 按鈕 + 4px 間距）
+            (12, 12, -204, 24),
             placeholder=L("search_placeholder"),
             callback=self.search_callback,
         )
 
-        # 插入按鈕（右上角，搜尋框旁）
+        history_icon = NSImage.imageWithSystemSymbolName_accessibilityDescription_(
+            "clock.arrow.circlepath", None
+        )
+        self.w.historyButton = vanilla.ImageButton(
+            (-194, 11, 24, 24),
+            imageObject=history_icon,
+            callback=self.show_history_menu,
+            bordered=False,
+        )
+        self._style_icon_button(self.w.historyButton, L("btn_history_tooltip"))
+
+        clear_icon = NSImage.imageWithSystemSymbolName_accessibilityDescription_(
+            "xmark.circle", None
+        )
+        self.w.clearButton = vanilla.ImageButton(
+            (-162, 11, 24, 24),
+            imageObject=clear_icon,
+            callback=self.clear_search,
+            bordered=False,
+        )
+        self._style_icon_button(self.w.clearButton, L("btn_clear_search_tooltip"))
+
+        favorite_icon = NSImage.imageWithSystemSymbolName_accessibilityDescription_(
+            "star", None
+        )
+        self.w.favoritesButton = vanilla.ImageButton(
+            (-130, 11, 24, 24),
+            imageObject=favorite_icon,
+            callback=self.show_favorites_menu,
+            bordered=False,
+        )
+        self._style_icon_button(self.w.favoritesButton, L("btn_favorites_tooltip"))
+
+        tile_icon = NSImage.imageWithSystemSymbolName_accessibilityDescription_(
+            "square.grid.3x3", None
+        )
+        self.w.tileButton = vanilla.ImageButton(
+            (-98, 11, 24, 24),
+            imageObject=tile_icon,
+            callback=self.toggle_tile_view,
+            bordered=False,
+        )
+        self._style_icon_button(self.w.tileButton, L("btn_tile_view_tooltip"))
+
+        density_icon = NSImage.imageWithSystemSymbolName_accessibilityDescription_(
+            "textformat.size", None
+        )
+        self.w.tileDensityButton = vanilla.ImageButton(
+            (-66, 11, 24, 24),
+            imageObject=density_icon,
+            callback=self.cycle_tile_density,
+            bordered=False,
+        )
+        self._style_icon_button(self.w.tileDensityButton, L("btn_tile_density_tooltip"))
+
         insert_icon = NSImage.imageWithSystemSymbolName_accessibilityDescription_(
             "arrow.up.forward.square", None
         )
@@ -211,14 +470,17 @@ class HanziComponentSearchTool:
             callback=self.insert_selected_text,
             bordered=False,
         )
-        # 設定 hover/press 效果：使用工具列按鈕樣式
-        ns_button = self.w.insertButton.getNSButton()
-        ns_button.setBezelStyle_(11)  # NSBezelStyleTexturedRounded
-        ns_button.setButtonType_(0)  # NSButtonTypeMomentaryLight - 點擊時高亮
-        ns_button.setShowsBorderOnlyWhileMouseInside_(True)
-        ns_button.setBordered_(True)
-        ns_button.setToolTip_(L("btn_insert_tooltip"))
-        self.w.insertButton.enable(False)  # 初始禁用
+        self._style_icon_button(self.w.insertButton, L("btn_insert_tooltip"))
+        self.w.insertButton.enable(False)
+
+        self._install_visual_cards()
+
+        self.w.summaryChar = vanilla.TextBox((12, 44, 92, 58), "—", alignment="center")
+        self.w.summaryMeta = vanilla.TextBox((116, 46, 210, 52), "", sizeStyle="small")
+        self.w.summaryStats = vanilla.TextBox((338, 46, 250, 34), "", sizeStyle="small")
+        self.w.summaryMode = vanilla.TextBox((338, 82, 250, 18), "", sizeStyle="small")
+        self.w.summaryHint = vanilla.TextBox((600, 46, -12, 32), L("summary_hint"), sizeStyle="small")
+        self.w.summaryLegend = vanilla.TextBox((600, 82, -12, 18), "", sizeStyle="small")
 
         # === 讀取設定 ===
         self.show_derived = self.settings.get("showDerived", False)
@@ -233,18 +495,18 @@ class HanziComponentSearchTool:
             self.stroke_filter_tick = STROKE_FILTER_OFF_TICK
 
         # IDS 切換控制區（列表上方獨立一行，初始隱藏）
-        self.w.idsSwitcher = vanilla.Group((114, 38, 130, 20))
+        self.w.idsSwitcher = vanilla.Group((154, 108, 170, 20))
 
         self.w.idsSwitcher.prevButton = vanilla.Button(
             (0, 0, 35, 20), "◀", callback=self.prev_ids, sizeStyle="small"
         )
 
         self.w.idsSwitcher.indicator = vanilla.TextBox(
-            (40, 0, 50, 20), "1/2", alignment="center", sizeStyle="small"
+            (40, 0, 70, 20), "1/2", alignment="center", sizeStyle="small"
         )
 
         self.w.idsSwitcher.nextButton = vanilla.Button(
-            (95, 0, 35, 20), "▶", callback=self.next_ids, sizeStyle="small"
+            (115, 0, 35, 20), "▶", callback=self.next_ids, sizeStyle="small"
         )
 
         # 初始隱藏
@@ -252,18 +514,28 @@ class HanziComponentSearchTool:
 
         # === 左側資訊區 ===
         # 預覽區
-        self.w.preview = vanilla.TextBox((12, 38, 90, 90), "", alignment="center")
+        self.w.preview = vanilla.TextBox((12, 114, 126, 126), "", alignment="center")
+        try:
+            self.w.previewImage = vanilla.ImageView((28, 124, 94, 94))
+            self.w.previewImage.show(False)
+        except Exception:
+            self.w.previewImage = None
+        self.w.previewStatus = vanilla.TextBox((12, 242, 126, 24), "", alignment="center", sizeStyle="small")
+        self.w.previewMeta = vanilla.TextBox((12, 266, 126, 18), "", alignment="center", sizeStyle="small")
 
         # 詳細資訊區（向下擴展到視窗底部）
-        self.w.content = vanilla.TextEditor((12, 130, 90, -42), "", readOnly=True)
+        self.w.content = vanilla.TextEditor((12, 292, 126, -50), "", readOnly=True)
 
         # === 中間結果列表 ===
         self.w.resultList = vanilla.List(
-            (114, 60, 130, -42), [], selectionCallback=self.selection_callback
+            (154, 132, 250, -50), [], selectionCallback=self.selection_callback
         )
 
-        # 為結果列表設定 TW-Sung 字型
-        result_list_font = self.get_font_for_char("漢", RESULT_LIST_FONT_SIZE)
+        # 樹形図の枝線を揃えるため、可能なら等幅システムフォントを使う。
+        try:
+            result_list_font = NSFont.monospacedSystemFontOfSize_weight_(RESULT_LIST_FONT_SIZE, 0.0)
+        except Exception:
+            result_list_font = self.get_font_for_char("漢", RESULT_LIST_FONT_SIZE)
         tableView = self.w.resultList.getNSTableView()
         for column in tableView.tableColumns():
             column.dataCell().setFont_(result_list_font)
@@ -271,15 +543,19 @@ class HanziComponentSearchTool:
         # 啟用橫向捲軸：禁用欄位自動調整，讓欄位可以超出視窗寬度
         tableView.setColumnAutoresizingStyle_(NSTableViewNoColumnAutoresizing)
         for column in tableView.tableColumns():
-            column.setMinWidth_(130)
+            column.setMinWidth_(250)
             column.setMaxWidth_(2000)
             # 停用文字省略，改為裁切（搭配橫向捲軸使用）
             column.dataCell().setLineBreakMode_(NSLineBreakByClipping)
 
-        # === 右側相關字區域 ===
-        self.w.relatedChars = vanilla.TextEditor((256, 38, -12, -42), "", readOnly=True)
+        # === 右側関連字エリア ===
+        # 旧TextEditorはテキストモード/フォールバック用に保持。
+        self.w.relatedChars = vanilla.TextEditor((420, 112, -12, -50), "", readOnly=True)
+        self.w.relatedTileHost = vanilla.Group((420, 112, -12, -50))
+        self._install_related_tile_engine()
+        self._sync_related_display_mode()
 
-        # 相關字區域的字型會在 update_related_display 中動態設定
+        # 相關字區域の字型/タイルは update_related_display で動的に更新
 
         # === 底部控制列 ===
         # 全字庫連結按鈕（左側區域下方，SF Symbols 圖示）
@@ -297,18 +573,48 @@ class HanziComponentSearchTool:
             callback=self.open_cns_link,
             bordered=False,
         )
-        # 設定 hover/press 效果：使用工具列按鈕樣式
-        ns_button = self.w.cnsLinkButton.getNSButton()
-        ns_button.setBezelStyle_(11)  # NSBezelStyleTexturedRounded
-        ns_button.setButtonType_(0)  # NSButtonTypeMomentaryLight - 點擊時高亮
-        ns_button.setShowsBorderOnlyWhileMouseInside_(True)
-        ns_button.setBordered_(True)
-        # 初始狀態：無字符時禁用
+        self._style_icon_button(self.w.cnsLinkButton, L("btn_cns_tooltip"))
         self.w.cnsLinkButton.enable(False)
+
+        copy_icon = NSImage.imageWithSystemSymbolName_accessibilityDescription_(
+            "doc.on.doc", None
+        )
+        self.w.copyRelatedButton = vanilla.ImageButton(
+            (44, -37, 24, 24),
+            imageObject=copy_icon,
+            callback=self.copy_related_text,
+            bordered=False,
+        )
+        self._style_icon_button(self.w.copyRelatedButton, L("btn_copy_related_tooltip"))
+        self.w.copyRelatedButton.enable(False)
+
+        search_selected_icon = NSImage.imageWithSystemSymbolName_accessibilityDescription_(
+            "magnifyingglass.circle", None
+        )
+        self.w.searchSelectedButton = vanilla.ImageButton(
+            (76, -37, 24, 24),
+            imageObject=search_selected_icon,
+            callback=self.search_selected_text,
+            bordered=False,
+        )
+        self._style_icon_button(self.w.searchSelectedButton, L("btn_search_selected_tooltip"))
+        self.w.searchSelectedButton.enable(False)
+
+        insert_all_icon = NSImage.imageWithSystemSymbolName_accessibilityDescription_(
+            "rectangle.stack.badge.plus", None
+        )
+        self.w.insertAllButton = vanilla.ImageButton(
+            (108, -37, 24, 24),
+            imageObject=insert_all_icon,
+            callback=self.insert_all_related,
+            bordered=False,
+        )
+        self._style_icon_button(self.w.insertAllButton, L("btn_insert_all_tooltip"))
+        self.w.insertAllButton.enable(False)
 
         # 深度拆解開關（中間區域下方）
         self.w.deepAnalysisCheckbox = vanilla.CheckBox(
-            (114, -36, 80, 22),
+            (154, -36, 92, 22),
             L("checkbox_deep_analysis"),
             callback=self.toggle_deep_analysis,
             value=self.deep_analysis,
@@ -316,7 +622,7 @@ class HanziComponentSearchTool:
 
         # 衍生字勾選框（右側區域左下角）
         self.w.showDerivedCheckbox = vanilla.CheckBox(
-            (200, -36, 60, 22),
+            (252, -36, 72, 22),
             L("checkbox_derived"),
             callback=self.toggle_derived_display,
             value=self.show_derived,
@@ -325,7 +631,7 @@ class HanziComponentSearchTool:
         # 筆畫篩選滑桿（與衍生字 checkbox 之間，右側留空間給狀態文字）
         # tickMarkCount=6 對應 [±0, ±1, ±2, ±3, ±5, OFF]
         self.w.strokeFilterSlider = vanilla.Slider(
-            (266, -34, -76, 18),
+            (334, -34, -112, 18),
             minValue=0,
             maxValue=STROKE_FILTER_OFF_TICK,
             value=self.stroke_filter_tick,
@@ -338,7 +644,7 @@ class HanziComponentSearchTool:
         # 筆畫篩選當前值顯示（滑桿右側，常駐可見）
         # 使用 left 對齊讓文字緊貼滑桿右緣，不會因 OFF/±N 長度不同產生視覺空隙
         self.w.strokeFilterValue = vanilla.TextBox(
-            (-72, -33, 30, 17),
+            (-108, -33, 34, 17),
             "",
             alignment="left",
             sizeStyle="small",
@@ -355,12 +661,7 @@ class HanziComponentSearchTool:
             callback=self.show_filter_menu,
             bordered=False,
         )
-        # 設定 hover/press 效果：使用工具列按鈕樣式
-        ns_button = self.w.filterButton.getNSButton()
-        ns_button.setBezelStyle_(11)  # NSBezelStyleTexturedRounded
-        ns_button.setButtonType_(0)  # NSButtonTypeMomentaryLight - 點擊時高亮
-        ns_button.setShowsBorderOnlyWhileMouseInside_(True)
-        ns_button.setBordered_(True)
+        self._style_icon_button(self.w.filterButton, L("btn_filter_tooltip"))
 
         # === 載入字集設定 ===
         # 載入上次的自訂字集設定（如果有）
@@ -390,6 +691,10 @@ class HanziComponentSearchTool:
         self.dialogColorBlockHandler = DialogColorBlockHandler.alloc().initWithTool_(
             self
         )
+        self.relatedDoubleClickHandler = RelatedDoubleClickHandler.alloc().initWithTool_(
+            self
+        )
+        self.resizeObserver = ResizeObserverHandler.alloc().initWithTool_(self)
 
         # 初始化顏色篩選 tooltip
         self.update_color_display()
@@ -397,8 +702,10 @@ class HanziComponentSearchTool:
         self.w.open()
         # 在視窗開啟後更新相關顯示
         self.update_related_display()
-        # 設定右側相關字區域的選取監聽
+        # 設定右側相關字區域的選取監聽 / ダブルクリック動作
         self.setup_selection_observer()
+        self.setup_related_double_click_handler()
+        self.setup_window_resize_observer()
 
         # 註冊 Glyphs 回調以監聽字符變化
         self.adapter.register_callback(self.on_glyph_changed)
@@ -410,10 +717,1322 @@ class HanziComponentSearchTool:
         # 開啟時立即抓取當前字符並執行搜尋
         self.on_glyph_changed()
 
+    def _style_icon_button(self, button, tooltip=None):
+        """Apply compact macOS toolbar button styling."""
+        try:
+            ns_button = button.getNSButton()
+            ns_button.setBezelStyle_(11)
+            ns_button.setButtonType_(0)
+            ns_button.setShowsBorderOnlyWhileMouseInside_(True)
+            ns_button.setBordered_(True)
+            if tooltip:
+                ns_button.setToolTip_(tooltip)
+        except Exception:
+            pass
+
+    def _semantic_color(self, name, fallback_name="labelColor"):
+        try:
+            return getattr(NSColor, name)()
+        except Exception:
+            try:
+                return getattr(NSColor, fallback_name)()
+            except Exception:
+                return NSColor.blackColor()
+
+    def _card_fill_color(self):
+        """Lightweight card fill: enough separation without heavy boxed UI."""
+        return self._with_alpha(
+            self._semantic_color("controlBackgroundColor", "windowBackgroundColor"), 0.68
+        )
+
+    def _card_border_color(self):
+        """Very subtle separator color for modern, quiet card edges."""
+        return self._with_alpha(
+            self._semantic_color("separatorColor", "secondaryLabelColor"), 0.22
+        )
+
+    def _install_visual_cards(self):
+        """Install subtle card backgrounds before controls are added."""
+        if not self.visual_effects_enabled:
+            return
+        specs = [
+            ("summaryCard", (8, 40, -8, 66), 12.0),
+            ("previewCard", (8, 108, 134, 170), 14.0),
+            ("contentCard", (8, 288, 134, -46), 10.0),
+            ("resultCard", (150, 128, 258, -46), 10.0),
+            ("relatedCard", (416, 108, -8, -46), 12.0),
+        ]
+        for attr, rect, radius in specs:
+            try:
+                box = vanilla.Box(rect)
+                setattr(self.w, attr, box)
+                ns_box = box.getNSBox()
+                ns_box.setTitle_("")
+                ns_box.setBoxType_(NSBoxCustom)
+                ns_box.setCornerRadius_(radius)
+                ns_box.setFillColor_(self._card_fill_color())
+                ns_box.setBorderType_(1)
+                ns_box.setBorderWidth_(0.35)
+                ns_box.setBorderColor_(self._card_border_color())
+            except Exception:
+                pass
+
+    def _with_alpha(self, color, alpha):
+        """Return color with alpha when available, otherwise the original color."""
+        try:
+            return color.colorWithAlphaComponent_(alpha)
+        except Exception:
+            return color
+
+    def _install_related_tile_engine(self):
+        """Create the object-tile scroll view.
+
+        This replaces tile selection implemented through NSTextView selection. The
+        old TextEditor remains available as a safe fallback and for non-tile mode.
+        """
+        try:
+            host_view = self.w.relatedTileHost.getNSView()
+            scroll = NSScrollView.alloc().initWithFrame_(host_view.bounds())
+            scroll.setAutoresizingMask_(NSViewWidthSizable | NSViewHeightSizable)
+            scroll.setHasVerticalScroller_(True)
+            scroll.setHasHorizontalScroller_(False)
+            scroll.setAutohidesScrollers_(True)
+            scroll.setDrawsBackground_(False)
+            scroll.setBorderType_(0)
+
+            tile_view = RelatedTileObjectView.alloc().initWithTool_(self)
+            tile_view.setFrame_(NSMakeRect(0, 0, max(1, host_view.bounds().size.width), 1))
+            try:
+                tile_view.setAutoresizingMask_(NSViewWidthSizable)
+            except Exception:
+                pass
+            scroll.setDocumentView_(tile_view)
+            host_view.addSubview_(scroll)
+            self.relatedTileScrollView = scroll
+            self.relatedTileView = tile_view
+            try:
+                tile_view.setToolTip_(L("tooltip_related_object_tiles"))
+            except Exception:
+                pass
+        except Exception:
+            import traceback
+            print(traceback.format_exc())
+            self.relatedTileScrollView = None
+            self.relatedTileView = None
+
+    def _tile_engine_available(self):
+        return bool(getattr(self, "relatedTileView", None) is not None and getattr(self, "relatedTileScrollView", None) is not None)
+
+    def _sync_related_display_mode(self):
+        """Show object tiles when possible; otherwise fall back to text."""
+        use_object_tiles = bool(self.tile_view_enabled and self._tile_engine_available())
+        try:
+            self.w.relatedTileHost.show(use_object_tiles)
+        except Exception:
+            pass
+        try:
+            self.w.relatedChars.show(not use_object_tiles)
+        except Exception:
+            pass
+        return use_object_tiles
+
+    def _related_tile_available_width(self):
+        """現在の右ペイン幅を取得し、タイル折り返し幅として使う。"""
+        try:
+            if self.relatedTileScrollView is not None:
+                return max(1, int(self.relatedTileScrollView.contentView().bounds().size.width))
+        except Exception:
+            pass
+        try:
+            if self.relatedTileView is not None:
+                return max(1, int(self.relatedTileView.bounds().size.width))
+        except Exception:
+            pass
+        return 420
+
+    def _relayout_related_tiles_to_scroll_width(self):
+        """ウィンドウ幅に追従して右タイルを再折り返しする。"""
+        if not self._tile_engine_available() or not self.related_tile_items:
+            return
+        try:
+            width = self._related_tile_available_width()
+            height = self._layout_related_tile_items(width)
+            self.relatedTileView.setFrameSize_(NSMakeSize(width, height))
+            self.relatedTileView.setNeedsDisplay_(True)
+        except Exception:
+            pass
+
+    def _tile_geometry_config(self):
+        """Tile dimensions tuned for each density."""
+        configs = {
+            "compact": {
+                "tile_w": 54, "tile_h": 48, "gap": 7, "pad": 10,
+                "char_size": 22, "badge_size": 12, "preview_size": 25,
+                "label_h": 24, "separator_h": 16, "corner": 9,
+            },
+            "comfortable": {
+                "tile_w": 68, "tile_h": 62, "gap": 9, "pad": 12,
+                "char_size": 27, "badge_size": 13, "preview_size": 34,
+                "label_h": 26, "separator_h": 18, "corner": 11,
+            },
+            "spacious": {
+                "tile_w": 84, "tile_h": 78, "gap": 12, "pad": 14,
+                "char_size": 34, "badge_size": 15, "preview_size": 46,
+                "label_h": 30, "separator_h": 20, "corner": 13,
+            },
+        }
+        return configs.get(self.tile_density, configs["comfortable"])
+
+    def _invalidate_status_cache(self):
+        """Clear cached glyph status used by lists, tiles, and summary badges."""
+        self._glyph_status_cache = {}
+        self._status_counts_cache_key = None
+        self._status_counts_cache_value = None
+
+    def _raw_glyph_status(self, char):
+        """Fetch Glyphs design status once per character for the current render pass."""
+        if not char:
+            return {}
+        cache_key = char
+        if cache_key in self._glyph_status_cache:
+            return self._glyph_status_cache[cache_key]
+        try:
+            status = self.adapter.get_glyph_design_status(self.adapter.get_current_font(), char) or {}
+        except Exception:
+            status = {}
+        self._glyph_status_cache[cache_key] = status
+        return status
+
+    def _glyph_status_payload(self, char):
+        """Canonical status payload shared by result rows, tiles, and summaries."""
+        return status_payload(
+            char,
+            self._raw_glyph_status(char),
+            favorite=char in self.favorite_chars,
+        )
+
+    def _glyph_status_key(self, char):
+        return self._glyph_status_payload(char).get("status", STATUS_MISSING)
+
+    def _tile_status_payload(self, char):
+        payload = self._glyph_status_payload(char)
+        return {"status": payload["status"], "marker": payload["marker"], "favorite": payload["favorite"]}
+
+    def _apply_related_status_filter(self, text):
+        """右ペイン用の状態フィルター。現在は「制作済みのみ」を提供する。"""
+        if not self.show_designed_only:
+            return text
+        lines = []
+        for raw_line in (text or "").splitlines():
+            line = raw_line.strip()
+            if not line or set(line) == {"-"}:
+                continue
+            label = None
+            payload = line
+            if " " in line:
+                label, payload = line.split(" ", 1)
+            filtered = []
+            for ch in payload:
+                try:
+                    if self.core.is_valid_character(ch) and self._glyph_status_key(ch) == STATUS_DESIGNED:
+                        filtered.append(ch)
+                except Exception:
+                    pass
+            if filtered:
+                lines.append((f"{label} {''.join(filtered)}") if label else "".join(filtered))
+        return "\n".join(lines)
+
+    def _build_related_tile_items(self, text):
+        """Build semantic tile objects from the canonical related text.
+
+        The tile engine stores each character in an object dictionary so selection
+        and double-click actions never depend on NSTextView ranges or status glyphs.
+        """
+        items = []
+        order = 0
+        for raw_line in (text or "").splitlines():
+            line = raw_line.strip()
+            if not line:
+                continue
+            if set(line) == {"-"}:
+                items.append({"kind": "separator", "text": ""})
+                continue
+            label = None
+            payload = line
+            if " " in line:
+                label, payload = line.split(" ", 1)
+                if label:
+                    items.append({"kind": "label", "text": label})
+            for ch in payload:
+                try:
+                    if self.core.is_valid_character(ch):
+                        status_payload = self._tile_status_payload(ch)
+                        items.append({
+                            "kind": "tile",
+                            "char": ch,
+                            "order": order,
+                            "status": status_payload["status"],
+                            "marker": status_payload["marker"],
+                            "favorite": status_payload["favorite"],
+                            "rect": (0, 0, 0, 0),
+                        })
+                        order += 1
+                except Exception:
+                    pass
+        return items
+
+    def _layout_related_tile_items(self, width=None):
+        if not self.related_tile_items:
+            self.related_tile_content_height = 1
+            return 1
+        cfg = self._tile_geometry_config()
+        pad, gap = cfg["pad"], cfg["gap"]
+        tile_w, tile_h = cfg["tile_w"], cfg["tile_h"]
+        width = int(width or 360)
+        width = max(width, tile_w + pad * 2)
+        x = pad
+        y = pad
+        row_open = False
+        for item in self.related_tile_items:
+            kind = item.get("kind")
+            if kind == "label":
+                if row_open:
+                    y += tile_h + gap
+                    row_open = False
+                item["rect"] = (pad, y, max(1, width - pad * 2), cfg["label_h"])
+                y += cfg["label_h"] + max(4, gap // 2)
+                x = pad
+            elif kind == "separator":
+                if row_open:
+                    y += tile_h + gap
+                    row_open = False
+                item["rect"] = (pad, y + cfg["separator_h"] / 2.0, max(1, width - pad * 2), 1)
+                y += cfg["separator_h"]
+                x = pad
+            else:
+                if x + tile_w > width - pad and x > pad:
+                    x = pad
+                    y += tile_h + gap
+                item["rect"] = (x, y, tile_w, tile_h)
+                x += tile_w + gap
+                row_open = True
+        if row_open:
+            y += tile_h
+        y += pad
+        self.related_tile_content_height = max(1, int(y))
+        self.related_tile_layout_width = width
+        return self.related_tile_content_height
+
+    def _render_related_tiles_from_display_text(self, text):
+        """Render current related output into the object-tile engine."""
+        self.related_tile_items = self._build_related_tile_items(text)
+        self.related_tile_selection = set()
+        self.related_tile_anchor_index = None
+        if not self._tile_engine_available():
+            return False
+        width = self._related_tile_available_width()
+        height = self._layout_related_tile_items(width)
+        try:
+            self.relatedTileView.setFrameSize_(NSMakeSize(width, height))
+            self.relatedTileView.setNeedsDisplay_(True)
+        except Exception:
+            pass
+        self._sync_related_display_mode()
+        return True
+
+    def _set_related_text_fallback(self, display_text):
+        rendered_text = self._tile_lines_from_display_text(display_text)
+        attr_string = self.create_related_attributed_string(
+            rendered_text,
+            self._tile_density_config()["font_size"] if self.tile_view_enabled else RELATED_CHARS_FONT_SIZE,
+        )
+        text_view = self.w.relatedChars.getNSTextView()
+        text_view.textStorage().setAttributedString_(attr_string)
+
+    def _set_related_output(self, display_text, focus_char=None, result_count=None, hint=None):
+        """Single rendering gateway for right-pane text fallback and object tiles."""
+        self._invalidate_status_cache()
+        display_text = self.core.clean_display_text(display_text or "")
+        display_text = self._apply_related_status_filter(display_text)
+        self.last_related_text = display_text
+        filtered_count = len(self._related_characters_only(display_text))
+        self.last_result_count = filtered_count if (self.show_designed_only or result_count is None) else result_count
+        if self.tile_view_enabled and self._tile_engine_available():
+            self._render_related_tiles_from_display_text(display_text)
+        else:
+            self._sync_related_display_mode()
+            self._set_related_text_fallback(display_text)
+        self._refresh_result_action_buttons()
+        self._refresh_summary_panel(focus_char=focus_char, result_count=self.last_result_count, hint=hint)
+
+    def _tile_item_at_point(self, point):
+        try:
+            px, py = float(point.x), float(point.y)
+        except Exception:
+            return None
+        for idx, item in enumerate(self.related_tile_items):
+            if item.get("kind") != "tile":
+                continue
+            x, y, w, h = item.get("rect", (0, 0, 0, 0))
+            if x <= px <= x + w and y <= py <= y + h:
+                return idx
+        return None
+
+    def _select_related_tile_index(self, idx, event=None):
+        """Update tile selection; Command toggles, Shift range-selects."""
+        if idx is None:
+            self.related_tile_selection = set()
+            self.related_tile_anchor_index = None
+            return
+        flags = 0
+        try:
+            flags = int(event.modifierFlags()) if event is not None else 0
+        except Exception:
+            flags = 0
+        shift_down = bool(flags & (1 << 17))
+        command_down = bool(flags & (1 << 20))
+        if shift_down and self.related_tile_anchor_index is not None:
+            a, b = sorted((self.related_tile_anchor_index, idx))
+            self.related_tile_selection = {
+                i for i in range(a, b + 1)
+                if i < len(self.related_tile_items) and self.related_tile_items[i].get("kind") == "tile"
+            }
+        elif command_down:
+            if idx in self.related_tile_selection:
+                self.related_tile_selection.remove(idx)
+            else:
+                self.related_tile_selection.add(idx)
+            self.related_tile_anchor_index = idx
+        else:
+            self.related_tile_selection = {idx}
+            self.related_tile_anchor_index = idx
+
+    def handle_related_tile_mouse_down(self, view, event, point):
+        idx = self._tile_item_at_point(point)
+        click_count = 1
+        try:
+            click_count = int(event.clickCount())
+        except Exception:
+            pass
+        if idx is None:
+            if click_count < 2:
+                self.related_tile_selection = set()
+                self.related_tile_anchor_index = None
+                self._refresh_result_action_buttons()
+                try:
+                    view.setNeedsDisplay_(True)
+                except Exception:
+                    pass
+            return
+        if click_count >= 2:
+            # If the tile is outside the current multi-selection, use the clicked tile.
+            if idx not in self.related_tile_selection:
+                self.related_tile_selection = {idx}
+                self.related_tile_anchor_index = idx
+            self.open_selected_related_tile_objects()
+        else:
+            self._select_related_tile_index(idx, event)
+            self._refresh_result_action_buttons()
+            try:
+                view.setNeedsDisplay_(True)
+            except Exception:
+                pass
+
+    def handle_related_tile_right_mouse_down(self, view, event, point):
+        """タイル右クリック：選択を保ったままコンテキストメニューを出す。"""
+        idx = self._tile_item_at_point(point)
+        if idx is not None:
+            # 既存の複数選択上で右クリックした場合は選択を維持。
+            if idx not in self.related_tile_selection:
+                self.related_tile_selection = {idx}
+                self.related_tile_anchor_index = idx
+        self._refresh_result_action_buttons()
+        try:
+            view.setNeedsDisplay_(True)
+        except Exception:
+            pass
+        self.show_related_tile_context_menu(view, event)
+
+    def _selected_or_all_tile_chars_for_menu(self):
+        chars = self._selected_tile_chars()
+        return chars or self._related_characters_only()
+
+    def show_related_tile_context_menu(self, view, event):
+        """選択タイル用の右クリックメニュー。"""
+        from AppKit import NSMenu, NSMenuItem
+        menu = NSMenu.alloc().init()
+        selected_chars = self._selected_tile_chars()
+        has_selection = bool(selected_chars)
+        header_title = L("menu_tile_context_header").format(count=len(selected_chars), text=selected_chars) if has_selection else L("menu_tile_context_no_selection")
+        header = NSMenuItem.alloc().initWithTitle_action_keyEquivalent_(header_title, None, "")
+        header.setEnabled_(False)
+        menu.addItem_(header)
+
+        entries = [
+            (L("menu_open_selected_tiles"), "openSelectedTiles:"),
+            (L("menu_insert_selected_tiles"), "insertSelectedTiles:"),
+            (L("menu_copy_selected_tiles"), "copySelectedTiles:"),
+            (L("menu_copy_selected_tile_unicode"), "copySelectedTileUnicode:"),
+            (L("menu_search_selected_tile"), "searchSelectedTile:"),
+        ]
+        for title, action in entries:
+            item = NSMenuItem.alloc().initWithTitle_action_keyEquivalent_(title, action, "")
+            item.setTarget_(self.filterMenuHandler)
+            item.setEnabled_(has_selection)
+            menu.addItem_(item)
+        menu.addItem_(NSMenuItem.separatorItem())
+        add_item = NSMenuItem.alloc().initWithTitle_action_keyEquivalent_(L("menu_add_selected_to_favorites"), "addSelectedTilesToFavorites:", "")
+        add_item.setTarget_(self.filterMenuHandler)
+        add_item.setEnabled_(has_selection)
+        menu.addItem_(add_item)
+        remove_item = NSMenuItem.alloc().initWithTitle_action_keyEquivalent_(L("menu_remove_selected_from_favorites"), "removeSelectedTilesFromFavorites:", "")
+        remove_item.setTarget_(self.filterMenuHandler)
+        remove_item.setEnabled_(has_selection)
+        menu.addItem_(remove_item)
+        try:
+            NSMenu.popUpContextMenu_withEvent_forView_(menu, event, view)
+        except Exception:
+            try:
+                menu.popUpMenuPositioningItem_atLocation_inView_(None, event.locationInWindow(), view)
+            except Exception:
+                pass
+
+    def _selected_tile_chars(self):
+        if not self.related_tile_selection:
+            return ""
+        pairs = []
+        for idx in self.related_tile_selection:
+            if 0 <= idx < len(self.related_tile_items):
+                item = self.related_tile_items[idx]
+                if item.get("kind") == "tile" and item.get("char"):
+                    pairs.append((item.get("order", idx), item.get("char")))
+        pairs.sort(key=lambda p: p[0])
+        seen = set()
+        chars = []
+        for _, ch in pairs:
+            if ch not in seen:
+                seen.add(ch)
+                chars.append(ch)
+        return "".join(chars)
+
+    def _tile_status_colors(self):
+        return {
+            STATUS_DESIGNED: self._semantic_color("systemGreenColor", "labelColor"),
+            STATUS_EXISTS: self._semantic_color("systemBlueColor", "labelColor"),
+            STATUS_MISSING: self._semantic_color("tertiaryLabelColor", "secondaryLabelColor"),
+            STATUS_FAVORITE: self._semantic_color("systemOrangeColor", "labelColor"),
+            "accent": self._semantic_color("controlAccentColor", "systemBlueColor"),
+        }
+
+    def _draw_rounded_rect(self, rect, fill_color, stroke_color=None, line_width=1.0, radius=8.0):
+        try:
+            path = NSBezierPath.bezierPathWithRoundedRect_xRadius_yRadius_(rect, radius, radius)
+            fill_color.setFill()
+            path.fill()
+            if stroke_color is not None:
+                stroke_color.setStroke()
+                path.setLineWidth_(line_width)
+                path.stroke()
+        except Exception:
+            pass
+
+    def _draw_text_in_rect(self, text, rect, font, color, align="center"):
+        try:
+            paragraph = NSMutableParagraphStyle.alloc().init()
+            align_map = {"left": 0, "center": 1, "right": 2}
+            paragraph.setAlignment_(align_map.get(align, 1))
+            attrs = {
+                NSFontAttributeName: font,
+                NSForegroundColorAttributeName: color,
+                NSParagraphStyleAttributeName: paragraph,
+            }
+            NSAttributedString.alloc().initWithString_attributes_(str(text), attrs).drawInRect_(rect)
+        except Exception:
+            pass
+
+    def _draw_image_in_rect(self, image, rect):
+        try:
+            image.drawInRect_(rect)
+            return True
+        except Exception:
+            pass
+        try:
+            image.drawInRect_fromRect_operation_fraction_(rect, NSMakeRect(0, 0, 0, 0), NSCompositeSourceOver, 1.0)
+            return True
+        except Exception:
+            return False
+
+    def _tile_preview_image(self, char, size):
+        if not self.tile_glyph_preview_enabled:
+            return None
+        try:
+            return self.adapter.draw_glyph_preview_image(self.adapter.get_current_font(), char, int(size))
+        except Exception:
+            return None
+
+    def draw_related_tile_objects(self, view, dirty_rect):
+        """Draw semantic tile objects. Called by RelatedTileObjectView.drawRect_."""
+        if not self.related_tile_items:
+            return
+        try:
+            width = self._related_tile_available_width()
+            if width and abs(width - self.related_tile_layout_width) > 4:
+                height = self._layout_related_tile_items(width)
+                view.setFrameSize_(NSMakeSize(width, height))
+        except Exception:
+            pass
+
+        cfg = self._tile_geometry_config()
+        colors = self._tile_status_colors()
+        label_color = self._semantic_color("secondaryLabelColor", "labelColor")
+        separator_color = self._with_alpha(label_color, 0.35)
+        normal_text = NSColor.labelColor()
+        base_bg = self._semantic_color("controlBackgroundColor", "windowBackgroundColor")
+        window_bg = self._semantic_color("windowBackgroundColor", "controlBackgroundColor")
+        selected_bg = self._with_alpha(colors["accent"], 0.14)
+        selected_stroke = self._with_alpha(colors["accent"], 0.72)
+        current_stroke = self._with_alpha(colors["accent"], 0.55)
+
+        for idx, item in enumerate(self.related_tile_items):
+            kind = item.get("kind")
+            x, y, w, h = item.get("rect", (0, 0, 0, 0))
+            if kind == "label":
+                self._draw_text_in_rect(
+                    "▸ " + item.get("text", ""),
+                    NSMakeRect(x, y + 3, w, h - 3),
+                    NSFont.boldSystemFontOfSize_(max(10, cfg["char_size"] - 12)),
+                    label_color,
+                    align="left",
+                )
+            elif kind == "separator":
+                try:
+                    separator_color.setFill()
+                    path = NSBezierPath.bezierPathWithRoundedRect_xRadius_yRadius_(NSMakeRect(x, y, w, 1), 0.5, 0.5)
+                    path.fill()
+                except Exception:
+                    pass
+            elif kind == "tile":
+                char = item.get("char", "")
+                status_key = item.get("status", "missing")
+                is_selected = idx in self.related_tile_selection
+                is_current = char == getattr(self, "current_char", None)
+                is_favorite = item.get("favorite", False)
+                status_color = colors[STATUS_FAVORITE] if is_favorite else colors.get(status_key, colors[STATUS_MISSING])
+                if is_selected:
+                    fill = selected_bg
+                    stroke = selected_stroke
+                    line_width = 2.0
+                else:
+                    if status_key == STATUS_DESIGNED:
+                        fill = self._with_alpha(colors[STATUS_DESIGNED], 0.075)
+                    elif status_key == STATUS_EXISTS:
+                        fill = self._with_alpha(colors[STATUS_EXISTS], 0.065)
+                    else:
+                        fill = self._with_alpha(base_bg, 0.72)
+                    stroke = self._with_alpha(status_color, 0.22)
+                    line_width = 0.6
+                if is_current and not is_selected:
+                    stroke = current_stroke
+                    line_width = 1.2
+
+                rect = NSMakeRect(x, y, w, h)
+                self._draw_rounded_rect(rect, fill, stroke, line_width=line_width, radius=cfg["corner"])
+
+                # status badge
+                badge_rect = NSMakeRect(x + 5, y + 5, cfg["badge_size"] + 8, cfg["badge_size"] + 5)
+                self._draw_rounded_rect(
+                    badge_rect,
+                    self._with_alpha(status_color, 0.12),
+                    self._with_alpha(status_color, 0.32),
+                    line_width=0.45,
+                    radius=cfg["badge_size"] / 2.0,
+                )
+                self._draw_text_in_rect(
+                    item.get("marker", "–"),
+                    NSMakeRect(badge_rect.origin.x, badge_rect.origin.y + 1, badge_rect.size.width, badge_rect.size.height),
+                    NSFont.boldSystemFontOfSize_(cfg["badge_size"]),
+                    status_color,
+                )
+
+                if is_favorite:
+                    self._draw_text_in_rect(
+                        "★",
+                        NSMakeRect(x + w - 22, y + 5, 16, 16),
+                        NSFont.boldSystemFontOfSize_(12),
+                        colors[STATUS_FAVORITE],
+                    )
+
+                preview_img = self._tile_preview_image(char, cfg["preview_size"])
+                if preview_img is not None:
+                    img_x = x + (w - cfg["preview_size"]) / 2.0
+                    img_y = y + 18
+                    self._draw_image_in_rect(preview_img, NSMakeRect(img_x, img_y, cfg["preview_size"], cfg["preview_size"]))
+                    self._draw_text_in_rect(
+                        char,
+                        NSMakeRect(x + 4, y + h - 21, w - 8, 18),
+                        self.get_font_for_char(char, max(12, cfg["char_size"] - 10)),
+                        self._with_alpha(normal_text, 0.78),
+                    )
+                else:
+                    self._draw_text_in_rect(
+                        char,
+                        NSMakeRect(x + 4, y + (h - cfg["char_size"]) / 2.0 + 3, w - 8, cfg["char_size"] + 10),
+                        self.get_font_for_char(char, cfg["char_size"]),
+                        colors["accent"] if is_current else normal_text,
+                    )
+
+                # subtle bottom status line
+                try:
+                    status_color.setFill()
+                    NSBezierPath.bezierPathWithRoundedRect_xRadius_yRadius_(
+                        NSMakeRect(x + 8, y + h - 6, w - 16, 2), 1, 1
+                    ).fill()
+                except Exception:
+                    pass
+
+    def open_selected_related_tile_objects(self):
+        chars = self._selected_tile_chars()
+        if not chars:
+            self._refresh_summary_panel(hint=L("summary_no_tile_selection"))
+            return
+        opened = self.adapter.open_text_in_new_tab(self.adapter.get_current_font(), chars)
+        if opened:
+            self._refresh_summary_panel(hint=L("summary_opened_new_tab").format(count=len(chars), text=chars))
+        else:
+            self._refresh_summary_panel(hint=L("summary_open_new_tab_failed"))
+
     def _find_data_path(self) -> str:
         """尋找資料庫路徑"""
         script_dir = os.path.dirname(os.path.abspath(__file__))
         return os.path.join(script_dir, "data", "ids.pdata")
+
+    # === UI utilities ===
+
+    def _copy_to_clipboard(self, text):
+        if not text:
+            return False
+        try:
+            pb = NSPasteboard.generalPasteboard()
+            pb.clearContents()
+            return bool(pb.setString_forType_(text, "public.utf8-plain-text"))
+        except Exception:
+            return False
+
+    def _selected_related_text(self):
+        if self.tile_view_enabled and self._tile_engine_available():
+            return self._selected_tile_chars()
+        try:
+            text_view = self.w.relatedChars.getNSTextView()
+            selected_range = text_view.selectedRange()
+            if selected_range.length == 0:
+                return ""
+            return str(text_view.string().substringWithRange_(selected_range)).strip()
+        except Exception:
+            return ""
+
+    def _related_characters_only(self, text=None):
+        text = self.last_related_text if text is None else text
+        return unique_related_chars(text, self.core.is_valid_character)
+
+    def _glyph_badge(self, char):
+        if not char:
+            return "·"
+        return self._glyph_status_payload(char).get("marker", STATUS_MARKERS[STATUS_MISSING])
+
+    def _tile_density_config(self):
+        """Return visual density settings for the related-character tile pane."""
+        configs = {
+            "compact": {"columns": 14, "font_size": 17, "gap": " ", "label": L("density_compact")},
+            "comfortable": {"columns": 10, "font_size": 20, "gap": "  ", "label": L("density_comfortable")},
+            "spacious": {"columns": 8, "font_size": 24, "gap": "   ", "label": L("density_spacious")},
+        }
+        return configs.get(self.tile_density, configs["comfortable"])
+
+    def _tile_marker_for_char(self, char):
+        """Favorite marker wins; otherwise use glyph design status marker."""
+        return self._glyph_badge(char)
+
+    def _selected_tile_count(self):
+        try:
+            return len(self._selected_tile_chars())
+        except Exception:
+            return 0
+
+    def _related_status_counts(self, text=None):
+        """Count visible result characters by current Glyphs design status."""
+        source_text = self.last_related_text if text is None else text
+        favorites_key = tuple(self.favorite_chars)
+        cache_key = (source_text, favorites_key, id(self.adapter.get_current_font()))
+        if cache_key == self._status_counts_cache_key and self._status_counts_cache_value is not None:
+            return dict(self._status_counts_cache_value)
+        chars = self._related_characters_only(source_text)
+        counts = count_statuses(chars, self._raw_glyph_status, self.favorite_chars)
+        self._status_counts_cache_key = cache_key
+        self._status_counts_cache_value = dict(counts)
+        return counts
+
+    def _mode_status_text(self):
+        density = self._tile_density_config()["label"]
+        tile_mode = L("summary_tile_on") if self.tile_view_enabled else L("summary_tile_off")
+        glyph_preview = L("summary_preview_on") if self.tile_glyph_preview_enabled else L("summary_preview_off")
+        status_filter = L("summary_filter_designed_only") if self.show_designed_only else L("summary_filter_all")
+        return L("summary_mode_line").format(
+            tile=tile_mode,
+            density=density,
+            glyphPreview=glyph_preview,
+            filter=status_filter,
+        )
+
+    def _tile_legend_text(self):
+        counts = self._related_status_counts()
+        return L("summary_status_line").format(
+            total=counts["total"],
+            designed=counts[STATUS_DESIGNED],
+            exists=counts[STATUS_EXISTS],
+            missing=counts[STATUS_MISSING],
+            favorite=counts[STATUS_FAVORITE],
+            selected=self._selected_tile_count(),
+            progress=designed_percent(counts),
+        )
+
+    def _format_result_row(self, item):
+        """Format center-list rows while preserving tree connector alignment.
+
+        Older GUI+ builds prefixed preview rows with "char  badge  ...", which made
+        branch lines start at different columns. v1.6.2 keeps the tree text first
+        and appends the glyph-status marker at the end: "│  └─ 木  ●".
+        """
+        if isinstance(item, str):
+            text = item
+            char = self.core.extract_character(text)
+        else:
+            tree, content = item
+            text = f"{tree}{content}"
+            char = content if self.core.is_valid_character(content) else self.core.extract_character(text)
+        if self.list_preview_enabled and char and self.core.is_valid_character(char):
+            return f"{text}  {self._glyph_badge(char)}"
+        return text
+
+    def _result_row_to_source_text(self, row):
+        """Remove UI-only list badges before character extraction/selection logic."""
+        if self.list_preview_enabled and isinstance(row, str):
+            marker_values = set(STATUS_MARKERS.values())
+            parts = row.rsplit("  ", 1)
+            if len(parts) == 2 and parts[1] in marker_values:
+                return parts[0]
+            # Backward compatibility for rows copied from older GUI+ versions.
+            old_parts = row.split("  ", 2)
+            if len(old_parts) == 3 and old_parts[1] in marker_values:
+                return old_parts[2]
+        return row
+
+    def _tile_lines_from_display_text(self, text, columns=None):
+        """Convert related display text into status-badged tile-grid lines while preserving group labels."""
+        if not self.tile_view_enabled:
+            return text
+        config = self._tile_density_config()
+        columns = columns or config["columns"]
+        gap = config["gap"]
+        output = []
+        for raw_line in (text or "").splitlines():
+            line = raw_line.strip()
+            if not line:
+                continue
+            if set(line) == {"-"}:
+                output.append("────")
+                continue
+            if " " in line:
+                label, payload = line.split(" ", 1)
+                output.append(f"▸ {label}")
+            else:
+                payload = line
+            chars = [ch for ch in payload if not ch.isspace()]
+            tokens = [f"{self._tile_marker_for_char(ch)}{ch}" for ch in chars]
+            for i in range(0, len(tokens), columns):
+                output.append(gap.join(tokens[i:i + columns]))
+        return "\n".join(output)
+
+    def _refresh_summary_panel(self, focus_char=None, result_count=None, hint=None):
+        char = focus_char or getattr(self, "current_char", None)
+        if result_count is None:
+            result_count = self.last_result_count
+        if hint is None:
+            hint = L("summary_hint")
+        if char:
+            strokes = self.core.get_stroke_count(char)
+            strokes_text = str(strokes) if strokes is not None else "—"
+            payload = self._glyph_status_payload(char)
+            meta = L("summary_focus_meta").format(
+                unicode=f"U+{ord(char):04X}",
+                strokes=strokes_text,
+                marker=payload.get("marker", "–"),
+                status=L(f"status_{payload.get('status', STATUS_MISSING)}"),
+            )
+            char_text = char
+        else:
+            meta = L("summary_no_focus_meta").format(
+                noFocus=L("summary_no_focus"),
+                tileMode=L("summary_tile_mode"),
+                tileState=L("summary_tile_on") if self.tile_view_enabled else L("summary_tile_off"),
+            )
+            char_text = "—"
+        try:
+            self.w.summaryChar.set(self.create_attributed_string(char_text, 42))
+        except Exception:
+            self.w.summaryChar.set(char_text)
+
+        charset_count = len(self.currentCharset) if self.currentCharset else 0
+        counts = self._related_status_counts()
+        stats = L("summary_stats_line").format(
+            charset=charset_count,
+            favorites=len(self.favorite_chars),
+            related=result_count,
+            designed=counts[STATUS_DESIGNED],
+            exists=counts[STATUS_EXISTS],
+            missing=counts[STATUS_MISSING],
+            progress=designed_percent(counts),
+        )
+        try:
+            self.w.summaryMeta.set(meta)
+            self.w.summaryStats.set(stats)
+            if hasattr(self.w, "summaryMode"):
+                self.w.summaryMode.set(self._mode_status_text())
+            self.w.summaryHint.set(hint)
+            if hasattr(self.w, "summaryLegend"):
+                self.w.summaryLegend.set(self._tile_legend_text())
+        except Exception:
+            pass
+        self._refresh_favorite_button()
+        self._refresh_tile_button()
+        self._refresh_density_button()
+
+    def _refresh_result_action_buttons(self):
+        chars = self._related_characters_only()
+        selected_chars = self._selected_tile_chars() if self.tile_view_enabled and self._tile_engine_available() else ""
+        try:
+            self.w.insertButton.enable(bool(selected_chars))
+        except Exception:
+            pass
+        try:
+            self.w.searchSelectedButton.enable(bool(selected_chars))
+        except Exception:
+            pass
+        for name in ("copyRelatedButton", "insertAllButton"):
+            try:
+                getattr(self.w, name).enable(bool(chars) or bool(selected_chars))
+            except Exception:
+                pass
+        self._refresh_favorite_button()
+
+    # === GUI+ actions / menus ===
+
+    def _add_recent_query(self, query):
+        query = (query or "").strip()
+        if not query:
+            return
+        self.recent_queries = [q for q in self.recent_queries if q != query]
+        self.recent_queries.insert(0, query)
+        self.recent_queries = self.recent_queries[:12]
+        self.settings.set("recentQueries", self.recent_queries)
+
+    def show_history_menu(self, sender):
+        from AppKit import NSMenu, NSMenuItem
+        menu = NSMenu.alloc().init()
+        if not self.recent_queries:
+            item = NSMenuItem.alloc().initWithTitle_action_keyEquivalent_(L("menu_history_empty"), None, "")
+            item.setEnabled_(False)
+            menu.addItem_(item)
+        else:
+            for query in self.recent_queries:
+                item = NSMenuItem.alloc().initWithTitle_action_keyEquivalent_(query, "selectRecentSearch:", "")
+                item.setTarget_(self.filterMenuHandler)
+                item.setRepresentedObject_(query)
+                menu.addItem_(item)
+            menu.addItem_(NSMenuItem.separatorItem())
+            clear_item = NSMenuItem.alloc().initWithTitle_action_keyEquivalent_(L("menu_history_clear"), "clearHistory:", "")
+            clear_item.setTarget_(self.filterMenuHandler)
+            menu.addItem_(clear_item)
+        button = sender.getNSButton()
+        menu.popUpMenuPositioningItem_atLocation_inView_(None, (0, button.bounds().size.height), button)
+
+    def run_recent_search(self, query):
+        self.w.inputText.set(query)
+        self.is_manual_mode = True
+        self.perform_search()
+
+    def clear_recent_queries(self):
+        self.recent_queries = []
+        self.settings.set("recentQueries", self.recent_queries)
+        self._refresh_summary_panel(hint=L("summary_history_cleared"))
+
+    def _active_or_selected_char(self):
+        try:
+            selected = self._selected_related_text()
+            char = self.core.extract_character(selected) if selected else None
+            if char and self.core.is_valid_character(char):
+                return char
+        except Exception:
+            pass
+        if self.current_char:
+            return self.current_char
+        return None
+
+    def _save_favorites(self):
+        self.favorite_chars = self.favorite_chars[:64]
+        self.settings.set("favoriteChars", self.favorite_chars)
+
+    def _set_button_symbol(self, button, symbol_name):
+        try:
+            image = NSImage.imageWithSystemSymbolName_accessibilityDescription_(symbol_name, None)
+            if image:
+                button.getNSButton().setImage_(image)
+        except Exception:
+            pass
+
+    def _refresh_favorite_button(self):
+        if not hasattr(self.w, "favoritesButton"):
+            return
+        char = self._active_or_selected_char()
+        is_fav = bool(char and char in self.favorite_chars)
+        self._set_button_symbol(self.w.favoritesButton, "star.fill" if is_fav else "star")
+        try:
+            if char:
+                key = "tooltip_favorite_on" if is_fav else "tooltip_favorite_off"
+                self.w.favoritesButton.getNSButton().setToolTip_(L(key).format(char=char))
+            else:
+                self.w.favoritesButton.getNSButton().setToolTip_(L("btn_favorites_tooltip"))
+        except Exception:
+            pass
+
+    def _refresh_tile_button(self):
+        if not hasattr(self.w, "tileButton"):
+            return
+        self._set_button_symbol(self.w.tileButton, "square.grid.3x3.fill" if self.tile_view_enabled else "square.grid.3x3")
+        try:
+            self.w.tileButton.getNSButton().setToolTip_(L("btn_tile_view_tooltip"))
+        except Exception:
+            pass
+
+    def _refresh_density_button(self):
+        if not hasattr(self.w, "tileDensityButton"):
+            return
+        symbols = {
+            "compact": "textformat.size.smaller",
+            "comfortable": "textformat.size",
+            "spacious": "textformat.size.larger",
+        }
+        self._set_button_symbol(self.w.tileDensityButton, symbols.get(self.tile_density, "textformat.size"))
+        try:
+            self.w.tileDensityButton.getNSButton().setToolTip_(
+                L("btn_tile_density_tooltip_state").format(density=self._tile_density_config()["label"])
+            )
+        except Exception:
+            pass
+
+    def show_favorites_menu(self, sender):
+        from AppKit import NSMenu, NSMenuItem
+        menu = NSMenu.alloc().init()
+        active_char = self._active_or_selected_char()
+        if active_char:
+            key = "menu_favorite_remove" if active_char in self.favorite_chars else "menu_favorite_add"
+            item = NSMenuItem.alloc().initWithTitle_action_keyEquivalent_(L(key).format(char=active_char), "toggleCurrentFavorite:", "")
+            item.setTarget_(self.filterMenuHandler)
+            menu.addItem_(item)
+            menu.addItem_(NSMenuItem.separatorItem())
+        title = NSMenuItem.alloc().initWithTitle_action_keyEquivalent_(L("menu_favorites"), None, "")
+        title.setEnabled_(False)
+        menu.addItem_(title)
+        if not self.favorite_chars:
+            empty = NSMenuItem.alloc().initWithTitle_action_keyEquivalent_(L("menu_favorites_empty"), None, "")
+            empty.setEnabled_(False)
+            menu.addItem_(empty)
+        else:
+            for char in self.favorite_chars[:20]:
+                item = NSMenuItem.alloc().initWithTitle_action_keyEquivalent_(f"★ {char}  U+{ord(char):04X}", "selectFavorite:", "")
+                item.setTarget_(self.filterMenuHandler)
+                item.setRepresentedObject_(char)
+                menu.addItem_(item)
+            menu.addItem_(NSMenuItem.separatorItem())
+            clear = NSMenuItem.alloc().initWithTitle_action_keyEquivalent_(L("menu_favorites_clear"), "clearFavorites:", "")
+            clear.setTarget_(self.filterMenuHandler)
+            menu.addItem_(clear)
+        button = sender.getNSButton()
+        menu.popUpMenuPositioningItem_atLocation_inView_(None, (0, button.bounds().size.height), button)
+
+    def toggle_current_favorite(self):
+        char = self._active_or_selected_char()
+        if not char:
+            return
+        if char in self.favorite_chars:
+            self.favorite_chars = [c for c in self.favorite_chars if c != char]
+            hint = L("summary_favorite_removed").format(char=char)
+        else:
+            self.favorite_chars = [c for c in self.favorite_chars if c != char]
+            self.favorite_chars.insert(0, char)
+            hint = L("summary_favorite_added").format(char=char)
+        self._save_favorites()
+        self._refresh_related_view()
+        self._refresh_summary_panel(hint=hint)
+
+    def run_favorite_search(self, char):
+        self.w.inputText.set(char)
+        self.is_manual_mode = True
+        self.perform_search()
+
+    def clear_favorites(self):
+        self.favorite_chars = []
+        self._save_favorites()
+        self._invalidate_status_cache()
+        self._refresh_related_view()
+        self._refresh_summary_panel(hint=L("summary_favorites_cleared"))
+
+    def _extract_chars_for_new_tab(self, text):
+        """タイル/通常表示の選択文字列から、Glyphs に送る漢字だけを順序維持で抽出。
+
+        タイル表示では見た目上 `●字` / `○字` / `★字` などの2文字トークンになるため、
+        ステータス記号や `▸` ラベル、罫線を除去して実文字だけを取り出す。
+        """
+        if not text:
+            return ""
+
+        marker_chars = set("★●○–-")
+        result = []
+        seen_positions = set()
+        raw_text = str(text)
+
+        # Tile mode: marker + valid character tokens are the safest signal.
+        for i, ch in enumerate(raw_text[:-1]):
+            nxt = raw_text[i + 1]
+            if ch in marker_chars:
+                try:
+                    if self.core.is_valid_character(nxt):
+                        result.append(nxt)
+                        seen_positions.add(i + 1)
+                except Exception:
+                    pass
+
+        # Fallback / non-tile mode: parse line-by-line and skip visual labels.
+        if not result:
+            for raw_line in raw_text.splitlines():
+                line = raw_line.strip()
+                if not line:
+                    continue
+                if line.startswith("▸") or line.startswith("────") or set(line) == {"-"}:
+                    continue
+                # In non-tile grouped lines, the first token is a component label: "木 林森".
+                payload = line.split(" ", 1)[1] if " " in line else line
+                for ch in payload:
+                    try:
+                        if self.core.is_valid_character(ch):
+                            result.append(ch)
+                    except Exception:
+                        pass
+
+        # De-duplicate while preserving order. Related panes should not need repeated glyphs.
+        unique = []
+        seen = set()
+        for ch in result:
+            if ch not in seen:
+                unique.append(ch)
+                seen.add(ch)
+        return "".join(unique)
+
+    def _character_at_related_text_click(self, gesture):
+        """ダブルクリック位置から近傍の有効文字を1字拾うフォールバック。"""
+        try:
+            text_view = self.w.relatedChars.getNSTextView()
+            point = gesture.locationInView_(text_view)
+            if hasattr(text_view, "characterIndexForInsertionAtPoint_"):
+                index = text_view.characterIndexForInsertionAtPoint_(point)
+            else:
+                return ""
+            text = str(text_view.string())
+            # The click may land on a status marker. Check the clicked index and neighbors.
+            for candidate_index in (index, index + 1, index - 1, index + 2, index - 2):
+                if 0 <= candidate_index < len(text):
+                    ch = text[candidate_index]
+                    if self.core.is_valid_character(ch):
+                        return ch
+        except Exception:
+            pass
+        return ""
+
+    def open_selected_related_glyphs_in_new_tab(self, gesture=None):
+        """右ペインで選択されたタイル/文字を Glyphs の新規タブで開く。"""
+        if self.tile_view_enabled and self._tile_engine_available():
+            chars = self._selected_tile_chars()
+            if chars:
+                return self.open_selected_related_tile_objects()
+        selected_text = self._selected_related_text()
+        chars = self._extract_chars_for_new_tab(selected_text)
+
+        # NSTextView may collapse a multi-character drag selection to the clicked tile
+        # just before the double-click recognizer fires. Keep a very recent multi
+        # selection as the intended target in that case.
+        try:
+            if (
+                len(chars) <= 1
+                and len(self.last_related_multi_selection_chars) > 1
+                and time.time() - self.last_related_multi_selection_time < 4.0
+            ):
+                chars = self.last_related_multi_selection_chars
+        except Exception:
+            pass
+
+        if not chars and gesture is not None:
+            chars = self._character_at_related_text_click(gesture)
+        if not chars:
+            self._refresh_summary_panel(hint=L("summary_no_tile_selection"))
+            return
+
+        font = self.adapter.get_current_font()
+        opened = self.adapter.open_text_in_new_tab(font, chars)
+        if opened:
+            self._refresh_summary_panel(
+                hint=L("summary_opened_new_tab").format(count=len(chars), text=chars)
+            )
+        else:
+            self._refresh_summary_panel(hint=L("summary_open_new_tab_failed"))
+
+    def clear_search(self, sender):
+        self.w.inputText.set("")
+        self.is_manual_mode = False
+        self._exit_multi_component_mode()
+        self.on_glyph_changed()
+        self._refresh_summary_panel(hint=L("summary_auto_mode"))
+
+    def copy_related_text(self, sender):
+        text = self._selected_related_text() or self.last_related_text
+        if self._copy_to_clipboard(text):
+            self._refresh_summary_panel(hint=L("summary_copied"))
+
+    def copy_related_chars_only(self, sender):
+        chars = self._related_characters_only()
+        if self._copy_to_clipboard(chars):
+            self._refresh_summary_panel(hint=L("summary_chars_copied").format(count=len(chars)))
+
+    def insert_all_related(self, sender):
+        chars = self._related_characters_only()
+        if not chars:
+            return
+        self.adapter.insert_to_tab(self.adapter.get_current_font(), chars)
+        self._refresh_summary_panel(hint=L("summary_inserted_all").format(count=len(chars)))
+
+    def search_selected_text(self, sender):
+        text = self._selected_related_text()
+        if not text:
+            return
+        char = self.core.extract_character(text)
+        query = char if char and self.core.is_valid_character(char) else text
+        self.w.inputText.set(query)
+        self.is_manual_mode = True
+        self.perform_search()
+
+    def toggle_designed_only(self, sender):
+        self.show_designed_only = not self.show_designed_only
+        self.settings.set("showDesignedOnly", self.show_designed_only)
+        self._refresh_related_view()
+        self._refresh_summary_panel(
+            hint=L("summary_designed_only_enabled") if self.show_designed_only else L("summary_designed_only_disabled")
+        )
+
+    def insert_selected_related_tiles(self, sender):
+        chars = self._selected_tile_chars()
+        if chars:
+            self.adapter.insert_to_tab(self.adapter.get_current_font(), chars)
+            self._refresh_summary_panel(hint=L("summary_inserted_selected_tiles").format(count=len(chars), text=chars))
+
+    def copy_selected_related_tiles(self, sender):
+        chars = self._selected_tile_chars()
+        if chars and self._copy_to_clipboard(chars):
+            self._refresh_summary_panel(hint=L("summary_copied_selected_tiles").format(count=len(chars), text=chars))
+
+    def copy_selected_tile_unicode(self, sender):
+        chars = self._selected_tile_chars()
+        if not chars:
+            return
+        values = " ".join(f"U+{ord(ch):04X}" for ch in chars)
+        if self._copy_to_clipboard(values):
+            self._refresh_summary_panel(hint=L("summary_copied_unicode").format(text=values))
+
+    def search_selected_tile(self, sender):
+        chars = self._selected_tile_chars()
+        if not chars:
+            return
+        self.w.inputText.set(chars[0])
+        self.is_manual_mode = True
+        self.perform_search()
+
+    def add_selected_tiles_to_favorites(self, sender):
+        chars = self._selected_tile_chars()
+        if not chars:
+            return
+        for ch in reversed(chars):
+            self.favorite_chars = [c for c in self.favorite_chars if c != ch]
+            self.favorite_chars.insert(0, ch)
+        self._save_favorites()
+        self._invalidate_status_cache()
+        self._refresh_related_view()
+        self._refresh_summary_panel(hint=L("summary_added_selected_favorites").format(count=len(chars)))
+
+    def remove_selected_tiles_from_favorites(self, sender):
+        chars = set(self._selected_tile_chars())
+        if not chars:
+            return
+        self.favorite_chars = [c for c in self.favorite_chars if c not in chars]
+        self._save_favorites()
+        self._invalidate_status_cache()
+        self._refresh_related_view()
+        self._refresh_summary_panel(hint=L("summary_removed_selected_favorites").format(count=len(chars)))
+
+    def toggle_tile_view(self, sender):
+        self.tile_view_enabled = not self.tile_view_enabled
+        self.settings.set("tileViewEnabled", self.tile_view_enabled)
+        self._refresh_related_view()
+        self._refresh_summary_panel(hint=L("summary_tile_enabled") if self.tile_view_enabled else L("summary_tile_disabled"))
+
+    def cycle_tile_density(self, sender):
+        order = ["compact", "comfortable", "spacious"]
+        try:
+            next_index = (order.index(self.tile_density) + 1) % len(order)
+        except ValueError:
+            next_index = 1
+        self.tile_density = order[next_index]
+        self.settings.set("tileDensity", self.tile_density)
+        self._refresh_related_view()
+        self._refresh_summary_panel(
+            hint=L("summary_tile_density_changed").format(density=self._tile_density_config()["label"])
+        )
+
+    def toggle_tile_glyph_preview(self, sender):
+        self.tile_glyph_preview_enabled = not self.tile_glyph_preview_enabled
+        self.settings.set("tileGlyphPreviewEnabled", self.tile_glyph_preview_enabled)
+        self._invalidate_status_cache()
+        self._refresh_related_view()
+        self._refresh_summary_panel(
+            hint=L("summary_tile_glyph_preview_enabled") if self.tile_glyph_preview_enabled else L("summary_tile_glyph_preview_disabled")
+        )
+
+    def toggle_list_preview(self, sender):
+        self.list_preview_enabled = not self.list_preview_enabled
+        self.settings.set("listPreviewEnabled", self.list_preview_enabled)
+        self._refresh_result_list_rows()
+        self._refresh_summary_panel(hint=L("summary_list_preview_enabled") if self.list_preview_enabled else L("summary_list_preview_disabled"))
+
+    def _refresh_related_view(self):
+        if self.multi_component_mode and self.multi_component_parts:
+            self._render_intersection(self.multi_component_parts)
+        else:
+            self.update_related_display()
+
+    def _refresh_result_list_rows(self):
+        if self.multi_component_mode and self.multi_component_parts:
+            original = "".join(self.multi_component_parts)
+            self.display_results = [self._format_result_row(original)] + [self._format_result_row(p) for p in self.multi_component_parts]
+        elif self.all_results:
+            self.display_results = [self._format_result_row(item) for item in self.all_results]
+        self.w.resultList.set(self.display_results)
+        self._adjust_result_list_column_width()
 
     # === 統一篩選選單 ===
 
@@ -422,6 +2041,61 @@ class HanziComponentSearchTool:
         from AppKit import NSMenu, NSMenuItem, NSOnState, NSOffState
 
         menu = NSMenu.alloc().init()
+
+        actions_item = NSMenuItem.alloc().initWithTitle_action_keyEquivalent_(
+            L("menu_result_actions"), None, ""
+        )
+        actions_item.setEnabled_(False)
+        menu.addItem_(actions_item)
+
+        copy_chars_item = NSMenuItem.alloc().initWithTitle_action_keyEquivalent_(
+            L("menu_copy_chars_only"), "copyRelatedCharsOnly:", ""
+        )
+        copy_chars_item.setTarget_(self.filterMenuHandler)
+        copy_chars_item.setEnabled_(bool(self._related_characters_only()))
+        menu.addItem_(copy_chars_item)
+
+        insert_all_item = NSMenuItem.alloc().initWithTitle_action_keyEquivalent_(
+            L("menu_insert_all_related"), "insertAllRelated:", ""
+        )
+        insert_all_item.setTarget_(self.filterMenuHandler)
+        insert_all_item.setEnabled_(bool(self._related_characters_only()))
+        menu.addItem_(insert_all_item)
+
+        tile_item = NSMenuItem.alloc().initWithTitle_action_keyEquivalent_(
+            L("menu_tile_view"), "toggleTileView:", ""
+        )
+        tile_item.setTarget_(self.filterMenuHandler)
+        tile_item.setState_(NSOnState if self.tile_view_enabled else NSOffState)
+        menu.addItem_(tile_item)
+
+        density_item = NSMenuItem.alloc().initWithTitle_action_keyEquivalent_(
+            L("menu_tile_density").format(density=self._tile_density_config()["label"]), "cycleTileDensity:", ""
+        )
+        density_item.setTarget_(self.filterMenuHandler)
+        menu.addItem_(density_item)
+
+        tile_preview_item = NSMenuItem.alloc().initWithTitle_action_keyEquivalent_(
+            L("menu_tile_glyph_preview"), "toggleTileGlyphPreview:", ""
+        )
+        tile_preview_item.setTarget_(self.filterMenuHandler)
+        tile_preview_item.setState_(NSOnState if self.tile_glyph_preview_enabled else NSOffState)
+        menu.addItem_(tile_preview_item)
+
+        preview_item = NSMenuItem.alloc().initWithTitle_action_keyEquivalent_(
+            L("menu_list_preview"), "toggleListPreview:", ""
+        )
+        preview_item.setTarget_(self.filterMenuHandler)
+        preview_item.setState_(NSOnState if self.list_preview_enabled else NSOffState)
+        menu.addItem_(preview_item)
+
+        designed_only_item = NSMenuItem.alloc().initWithTitle_action_keyEquivalent_(
+            L("menu_designed_only_filter"), "toggleDesignedOnly:", ""
+        )
+        designed_only_item.setTarget_(self.filterMenuHandler)
+        designed_only_item.setState_(NSOnState if self.show_designed_only else NSOffState)
+        menu.addItem_(designed_only_item)
+        menu.addItem_(NSMenuItem.separatorItem())
 
         # 顏色篩選項目
         color_count = len(self.filter_colors)
@@ -550,7 +2224,7 @@ class HanziComponentSearchTool:
             return
 
         font = tableView.tableColumns()[0].dataCell().font()
-        max_width = 130
+        max_width = 250
 
         for item in self.display_results:
             attr_str = NSAttributedString.alloc().initWithString_attributes_(
@@ -764,6 +2438,8 @@ class HanziComponentSearchTool:
 
         # 非多部件輸入：若先前在多部件模式，退出以恢復衍生字開關狀態
         self._exit_multi_component_mode()
+        if self.is_manual_mode:
+            self._add_recent_query(input_text)
 
         # 處理 Unicode 格式
         if input_text.startswith(("uni", "UNI")) and len(input_text) == 7:
@@ -828,11 +2504,10 @@ class HanziComponentSearchTool:
         供單字、Unicode、多部件 AND 三條搜尋路徑共用。
         """
         # 生成顯示結果並同時存儲
-        self.display_results = [
-            f"{tree}{content}" for tree, content in self.all_results
-        ]
+        self.display_results = [self._format_result_row(item) for item in self.all_results]
         self.w.resultList.set(self.display_results)
         self._adjust_result_list_column_width()
+        self.last_result_count = len(self.display_results)
 
         # 提取第一個有效字符，連動更新左欄（預覽+詳資）與右欄（同字根）
         if self.all_results:
@@ -866,9 +2541,11 @@ class HanziComponentSearchTool:
 
         # 中欄：第一行原始輸入（交集錨點），其後一行一個部件
         original = "".join(parts)
-        self.display_results = [original] + parts
+        self._add_recent_query(original)
+        self.display_results = [self._format_result_row(original)] + [self._format_result_row(p) for p in parts]
         self.w.resultList.set(self.display_results)
         self._adjust_result_list_column_width()
+        self.last_result_count = len(self.display_results)
 
         # 右欄：AND 交集；左欄：清空，待點選中欄某字才填
         self._render_intersection(parts)
@@ -905,16 +2582,24 @@ class HanziComponentSearchTool:
                 related = self.core.filter_by_stroke_value(related, base, max_diff)
 
         display_text = self.core.clean_display_text("".join(related))
-        attr_string = self.create_attributed_string(
-            display_text, RELATED_CHARS_FONT_SIZE, use_enhanced_spacing=True
+        self._set_related_output(
+            display_text,
+            result_count=len(related),
+            hint=L("summary_multi_hint"),
         )
-        text_view = self.w.relatedChars.getNSTextView()
-        text_view.textStorage().setAttributedString_(attr_string)
 
     def _clear_left_panel(self):
         """清空左欄（預覽 + 詳資）；多部件模式無單一焦點字時使用。"""
         self.current_char = None
         self.w.preview.set("")
+        try:
+            if self.w.previewImage:
+                self.w.previewImage.show(False)
+        except Exception:
+            pass
+        self.w.previewStatus.set("")
+        if hasattr(self.w, "previewMeta"):
+            self.w.previewMeta.set("")
         self.w.content.set("")
         self.w.idsSwitcher.show(False)
         if hasattr(self.w, "cnsLinkButton"):
@@ -989,8 +2674,13 @@ class HanziComponentSearchTool:
                         ids_lines.append(f"  {ids}")
                 ids_display = "\n".join(ids_lines)
 
+            focus_char = self.current_char
+            strokes = self.core.get_stroke_count(focus_char)
+            strokes_line = f"{L('summary_strokes')}: {strokes}" if strokes is not None else f"{L('summary_strokes')}: —"
+            glyph_status = self.adapter.get_glyph_design_status(self.adapter.get_current_font(), focus_char)
+            design_line = L("preview_designed") if glyph_status.get("designed") else (L("preview_empty_glyph") if glyph_status.get("exists") else L("preview_missing_glyph"))
             detail_text = (
-                f"{char_data['char']}\n{char_data['unicode'].upper()}\n{ids_display}"
+                f"{char_data['char']}\nU+{char_data['unicode'].upper()}\n{strokes_line} · {design_line}\n{ids_display}"
             )
             detail_text = self.core.clean_display_text(detail_text)
             # 使用動態字型的 NSAttributedString
@@ -1010,9 +2700,7 @@ class HanziComponentSearchTool:
             )
 
             # 更新結果列表顯示
-            self.display_results = [
-                f"{tree}{content}" for tree, content in self.all_results
-            ]
+            self.display_results = [self._format_result_row(item) for item in self.all_results]
             self.w.resultList.set(self.display_results)
             self._adjust_result_list_column_width()
 
@@ -1031,7 +2719,7 @@ class HanziComponentSearchTool:
         selection = sender.getSelection()
         if not selection:
             return
-        selected_item = sender[selection[0]]
+        selected_item = self._result_row_to_source_text(sender[selection[0]])
 
         # 多部件模式：第一行＝原始查詢（回到 AND 交集）；其餘行＝單一部件（看該部件衍生字）
         if self.multi_component_mode:
@@ -1091,8 +2779,12 @@ class HanziComponentSearchTool:
                 # 無 IDS 資料時顯示本字
                 ids_display = char_data["char"]
 
+            strokes = self.core.get_stroke_count(char)
+            strokes_line = f"{L('summary_strokes')}: {strokes}" if strokes is not None else f"{L('summary_strokes')}: —"
+            glyph_status = self.adapter.get_glyph_design_status(self.adapter.get_current_font(), char)
+            design_line = L("preview_designed") if glyph_status.get("designed") else (L("preview_empty_glyph") if glyph_status.get("exists") else L("preview_missing_glyph"))
             detail_text = (
-                f"{char_data['char']}\n{char_data['unicode'].upper()}\n{ids_display}"
+                f"{char_data['char']}\nU+{char_data['unicode'].upper()}\n{strokes_line} · {design_line}\n{ids_display}"
             )
             # 清理可能造成顯示問題的字符
             detail_text = self.core.clean_display_text(detail_text)
@@ -1117,6 +2809,7 @@ class HanziComponentSearchTool:
         # 更新全字庫按鈕狀態
         if hasattr(self.w, "cnsLinkButton"):
             self.w.cnsLinkButton.enable(bool(self.current_char))
+        self._refresh_summary_panel(focus_char=char)
 
     # === 顏色選擇器 ===
 
@@ -1462,41 +3155,67 @@ class HanziComponentSearchTool:
                         display_lines.append(f"{component} {''.join(filtered_chars)}")
 
         display_text = "\n".join(display_lines) if display_lines else display_char
-        # 清理可能造成顯示問題的字符
-        display_text = self.core.clean_display_text(display_text)
-
-        # 使用動態字型的 NSAttributedString（右側區域啟用加大字距和行距）
-        attr_string = self.create_attributed_string(
-            display_text, RELATED_CHARS_FONT_SIZE, use_enhanced_spacing=True
+        self._set_related_output(
+            display_text,
+            focus_char=display_char,
+            result_count=len(self._related_characters_only(display_text)),
         )
-        text_view = self.w.relatedChars.getNSTextView()
-        text_view.textStorage().setAttributedString_(attr_string)
 
     # === 預覽功能 ===
 
     def update_preview(self, char):
-        """更新字符預覽（水平垂直居中）"""
-        font = self.get_font_for_char(char)
-
-        # 垂直偏移量：負值向下移動，正值向上移動
-        # 微調讓文字在 90px 高度區域內視覺居中
-        baseline_offset = -4
-
-        # 段落樣式：水平居中
-        paragraph_style = NSMutableParagraphStyle.alloc().init()
-        paragraph_style.setAlignment_(1)  # NSCenterTextAlignment = 1
-
-        # 使用系統語義顏色，自動適應深淺模式
-        preview_text = NSAttributedString.alloc().initWithString_attributes_(
-            char,
-            {
-                NSFontAttributeName: font,
-                NSForegroundColorAttributeName: NSColor.labelColor(),
-                NSBaselineOffsetAttributeName: baseline_offset,
-                NSParagraphStyleAttributeName: paragraph_style,
-            },
-        )
-        self.w.preview.set(preview_text)
+        """Update preview. Prefer the actual designed Glyphs layer when present."""
+        font_obj = self.adapter.get_current_font()
+        status = self.adapter.get_glyph_design_status(font_obj, char)
+        image = self.adapter.draw_glyph_preview_image(font_obj, char, 96)
+        if image is not None and getattr(self.w, "previewImage", None) is not None:
+            try:
+                self.w.previewImage.setImage(imageObject=image)
+                self.w.previewImage.show(True)
+                self.w.preview.set("")
+            except Exception:
+                image = None
+        if image is None:
+            try:
+                if getattr(self.w, "previewImage", None) is not None:
+                    self.w.previewImage.show(False)
+            except Exception:
+                pass
+            font = self.get_font_for_char(char)
+            baseline_offset = -4
+            paragraph_style = NSMutableParagraphStyle.alloc().init()
+            paragraph_style.setAlignment_(1)
+            preview_text = NSAttributedString.alloc().initWithString_attributes_(
+                char,
+                {
+                    NSFontAttributeName: font,
+                    NSForegroundColorAttributeName: NSColor.labelColor(),
+                    NSBaselineOffsetAttributeName: baseline_offset,
+                    NSParagraphStyleAttributeName: paragraph_style,
+                },
+            )
+            self.w.preview.set(preview_text)
+        payload = self._glyph_status_payload(char)
+        try:
+            glyph_name = status.get("glyphName") or "—"
+        except Exception:
+            glyph_name = "—"
+        try:
+            self.w.previewStatus.set(
+                L("preview_status_line").format(
+                    marker=payload.get("marker", "–"),
+                    status=L(f"status_{payload.get('status', STATUS_MISSING)}"),
+                    glyph=glyph_name,
+                )
+            )
+            if hasattr(self.w, "previewMeta"):
+                strokes = self.core.get_stroke_count(char)
+                strokes_text = str(strokes) if strokes is not None else "—"
+                self.w.previewMeta.set(
+                    L("preview_meta_line").format(unicode=f"U+{ord(char):04X}", strokes=strokes_text)
+                )
+        except Exception:
+            pass
 
     def get_font_for_char(self, char, size=72):
         """
@@ -1567,6 +3286,131 @@ class HanziComponentSearchTool:
         except Exception:
             # 發生錯誤時 fallback 到系統字型
             return NSFont.systemFontOfSize_(size)
+
+    def create_related_attributed_string(self, text, size):
+        """Right pane renderer with tile/status styling.
+
+        Tile mode renders each related character as a two-glyph token: status marker + character.
+        The marker carries status color, while the character gets a soft semantic background.
+        """
+        if not text:
+            return NSAttributedString.alloc().initWithString_("")
+
+        result = NSMutableAttributedString.alloc().init()
+        system_font = NSFont.systemFontOfSize_(max(10, size - 7))
+        marker_font = NSFont.boldSystemFontOfSize_(max(9, size - 8))
+        label_font = NSFont.boldSystemFontOfSize_(max(10, size - 7))
+        separator_font = NSFont.systemFontOfSize_(max(10, size - 7))
+        paragraph_style = NSMutableParagraphStyle.alloc().init()
+        line_height = size * (1.28 if self.tile_view_enabled else RELATED_CHARS_LINE_HEIGHT)
+        paragraph_style.setMinimumLineHeight_(line_height)
+        paragraph_style.setMaximumLineHeight_(line_height)
+
+        label_color = self._semantic_color("secondaryLabelColor", "labelColor")
+        separator_color = self._semantic_color("tertiaryLabelColor", "secondaryLabelColor")
+        favorite_color = self._semantic_color("systemOrangeColor", "labelColor")
+        designed_color = self._semantic_color("systemGreenColor", "labelColor")
+        exists_color = self._semantic_color("systemBlueColor", "labelColor")
+        missing_color = self._semantic_color("tertiaryLabelColor", "secondaryLabelColor")
+        accent_color = self._semantic_color("controlAccentColor", "systemBlueColor")
+        designed_bg = self._semantic_color("selectedTextBackgroundColor", "controlBackgroundColor")
+        exists_bg = self._semantic_color("textBackgroundColor", "controlBackgroundColor")
+        missing_bg = self._semantic_color("controlBackgroundColor", "windowBackgroundColor")
+
+        marker_colors = {
+            "★": favorite_color,
+            "●": designed_color,
+            "○": exists_color,
+            "–": missing_color,
+            "-": missing_color,
+        }
+
+        def append(piece, attrs):
+            result.appendAttributedString_(
+                NSAttributedString.alloc().initWithString_attributes_(piece, attrs)
+            )
+
+        lines = text.splitlines()
+        for line_index, line in enumerate(lines):
+            stripped = line.strip()
+            base = {NSParagraphStyleAttributeName: paragraph_style}
+            if not stripped:
+                pass
+            elif stripped.startswith("────") or set(stripped) == {"-"}:
+                attrs = dict(base)
+                attrs.update({
+                    NSFontAttributeName: separator_font,
+                    NSForegroundColorAttributeName: separator_color,
+                })
+                append("────────", attrs)
+            elif stripped.startswith("▸ ") or (
+                "  " not in line
+                and len(stripped) <= 14
+                and not any(self.core.is_valid_character(ch) for ch in stripped)
+            ):
+                attrs = dict(base)
+                attrs.update({
+                    NSFontAttributeName: label_font,
+                    NSForegroundColorAttributeName: label_color,
+                })
+                append(stripped, attrs)
+            else:
+                i = 0
+                while i < len(line):
+                    ch = line[i]
+                    if ch.isspace():
+                        append(ch, {NSFontAttributeName: system_font, NSParagraphStyleAttributeName: paragraph_style})
+                        i += 1
+                        continue
+
+                    # Tile token: marker + valid CJK char.
+                    if ch in marker_colors and i + 1 < len(line) and self.core.is_valid_character(line[i + 1]):
+                        marker = ch
+                        tile_char = line[i + 1]
+                        status = self.adapter.get_glyph_design_status(self.adapter.get_current_font(), tile_char)
+                        marker_attrs = dict(base)
+                        marker_attrs.update({
+                            NSFontAttributeName: marker_font,
+                            NSForegroundColorAttributeName: marker_colors.get(marker, missing_color),
+                            NSBaselineOffsetAttributeName: max(1, size * 0.08),
+                        })
+                        char_attrs = dict(base)
+                        char_attrs.update({
+                            NSFontAttributeName: self.get_font_for_char(tile_char, size),
+                            NSForegroundColorAttributeName: favorite_color if tile_char in self.favorite_chars else NSColor.labelColor(),
+                            NSKernAttributeName: 0.4,
+                        })
+                        if self.tile_view_enabled:
+                            if status.get("designed"):
+                                char_attrs[NSBackgroundColorAttributeName] = designed_bg
+                            elif status.get("exists"):
+                                char_attrs[NSBackgroundColorAttributeName] = exists_bg
+                            else:
+                                char_attrs[NSBackgroundColorAttributeName] = missing_bg
+                        if tile_char == getattr(self, "current_char", None):
+                            char_attrs[NSForegroundColorAttributeName] = accent_color
+                        append(marker, marker_attrs)
+                        append(tile_char, char_attrs)
+                        i += 2
+                        continue
+
+                    attrs = dict(base)
+                    if self.core.is_valid_character(ch):
+                        status = self.adapter.get_glyph_design_status(self.adapter.get_current_font(), ch)
+                        attrs.update({
+                            NSFontAttributeName: self.get_font_for_char(ch, size),
+                            NSForegroundColorAttributeName: favorite_color if ch in self.favorite_chars else NSColor.labelColor(),
+                            NSKernAttributeName: 0.8,
+                        })
+                        if self.tile_view_enabled:
+                            attrs[NSBackgroundColorAttributeName] = designed_bg if status.get("designed") else missing_bg
+                    else:
+                        attrs.update({NSFontAttributeName: system_font, NSForegroundColorAttributeName: label_color})
+                    append(ch, attrs)
+                    i += 1
+            if line_index < len(lines) - 1:
+                append("\n", {NSFontAttributeName: system_font, NSParagraphStyleAttributeName: paragraph_style})
+        return result
 
     def create_attributed_string(self, text, size, use_enhanced_spacing=False):
         """
@@ -1639,6 +3483,22 @@ class HanziComponentSearchTool:
 
     # === 插入按鈕功能 ===
 
+    def setup_window_resize_observer(self):
+        """ウィンドウ幅変更時にタイルを再折り返しする。"""
+        try:
+            window = self.w.getNSWindow()
+            NSNotificationCenter.defaultCenter().addObserver_selector_name_object_(
+                self.resizeObserver,
+                "windowDidResize:",
+                "NSWindowDidResizeNotification",
+                window,
+            )
+        except Exception:
+            pass
+
+    def on_window_resized(self, notification=None):
+        self._relayout_related_tiles_to_scroll_width()
+
     def setup_selection_observer(self):
         """監聽右側相關字區域的選取變化，控制插入按鈕啟用狀態"""
         textView = self.w.relatedChars.getNSTextView()
@@ -1649,20 +3509,59 @@ class HanziComponentSearchTool:
             textView,
         )
 
+    def setup_related_double_click_handler(self):
+        """右ペインのタイル/文字をダブルクリックで新規タブ展開できるようにする。"""
+        try:
+            textView = self.w.relatedChars.getNSTextView()
+            recognizer = NSClickGestureRecognizer.alloc().initWithTarget_action_(
+                self.relatedDoubleClickHandler, "handleRelatedDoubleClick:"
+            )
+            recognizer.setNumberOfClicksRequired_(2)
+            recognizer.setDelaysPrimaryMouseButtonEvents_(False)
+            textView.addGestureRecognizer_(recognizer)
+            self.relatedDoubleClickRecognizer = recognizer
+            try:
+                textView.setToolTip_(L("tooltip_related_double_click"))
+            except Exception:
+                pass
+        except Exception:
+            self.relatedDoubleClickRecognizer = None
+        self.resizeObserver = None
+        self.last_related_selection_chars = ""
+        self.last_related_multi_selection_chars = ""
+        self.last_related_multi_selection_time = 0
+
     def on_selection_changed(self, notification):
         """當選取變化時更新插入按鈕狀態"""
         textView = self.w.relatedChars.getNSTextView()
         has_selection = textView.selectedRange().length > 0
         self.w.insertButton.enable(has_selection)
+        if hasattr(self.w, "searchSelectedButton"):
+            self.w.searchSelectedButton.enable(has_selection)
+        if hasattr(self.w, "copyRelatedButton"):
+            self.w.copyRelatedButton.enable(has_selection or bool(self._related_characters_only()))
+        try:
+            selected_text = self._selected_related_text() if has_selection else ""
+            chars = self._extract_chars_for_new_tab(selected_text)
+            self.last_related_selection_chars = chars
+            if len(chars) > 1:
+                self.last_related_multi_selection_chars = chars
+                self.last_related_multi_selection_time = time.time()
+        except Exception:
+            pass
+        self._refresh_favorite_button()
 
     def insert_selected_text(self, sender):
         """將選取的文字插入到編輯分頁"""
-        textView = self.w.relatedChars.getNSTextView()
-        selectedRange = textView.selectedRange()
-        if selectedRange.length == 0:
-            return
-        selectedText = textView.string().substringWithRange_(selectedRange)
-        selectedText = str(selectedText).strip()
+        if self.tile_view_enabled and self._tile_engine_available():
+            selectedText = self._selected_tile_chars()
+        else:
+            textView = self.w.relatedChars.getNSTextView()
+            selectedRange = textView.selectedRange()
+            if selectedRange.length == 0:
+                return
+            selectedText = textView.string().substringWithRange_(selectedRange)
+            selectedText = self._extract_chars_for_new_tab(str(selectedText).strip()) or str(selectedText).strip()
         if selectedText:
             font = self.adapter.get_current_font()
             self.adapter.insert_to_tab(font, selectedText)
@@ -1730,6 +3629,11 @@ class HanziComponentSearchTool:
         # 移除選取變化監聽
         try:
             NSNotificationCenter.defaultCenter().removeObserver_(self.selectionObserver)
+        except Exception:
+            pass
+        try:
+            if self.resizeObserver is not None:
+                NSNotificationCenter.defaultCenter().removeObserver_(self.resizeObserver)
         except Exception:
             pass
 

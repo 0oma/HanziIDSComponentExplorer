@@ -23,10 +23,10 @@ class HanziIDSComponentExplorer(GeneralPlugin):
     def settings(self):
         """初始化設定 - 外掛載入時呼叫一次"""
         self.name = Glyphs.localize({
-            'en': 'Hanzi IDS Component Explorer',
-            'zh-Hant': '漢字IDS部件查詢',
-            'zh-Hans': '汉字IDS部件查询',
-            'ja': '漢字IDS部品検索',
+            'en': 'Hanzi Component Explorer',
+            'zh-Hant': '漢字部件查詢',
+            'zh-Hans': '汉字部件查询',
+            'ja': '漢字部品検索',
         })
         self.tool = None  # 延遲初始化
 
