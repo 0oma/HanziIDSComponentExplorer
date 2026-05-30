@@ -49,7 +49,7 @@ from AppKit import (
 )
 import CoreText
 
-from hanzi_core import HanziCore, is_complete_search_input
+from hanzi_core import HanziCore, is_complete_search_input, resolve_display_char
 from glyphs_adapter import GlyphsAdapter, GlyphsSettings
 from localization import L
 from glyph_status import (
@@ -332,6 +332,7 @@ class HanziComponentSearchTool:
         self.display_results = []  # 存儲顯示用的字符串
         self.current_char = None
         self.last_related_text = ""
+        self.related_display_char = None
         self.last_result_count = 0
         self._glyph_status_cache = {}
         self._status_counts_cache_key = None
@@ -2707,6 +2708,7 @@ class HanziComponentSearchTool:
             self._adjust_result_list_column_width()
 
             # 更新相關字顯示（基於當前選中的 IDS）
+            self.related_display_char = self.current_char
             self.update_related_display()
 
     # === 選擇處理 ===
@@ -2726,6 +2728,7 @@ class HanziComponentSearchTool:
         # 多部件模式：第一行＝原始查詢（回到 AND 交集）；其餘行＝單一部件（看該部件衍生字）
         if self.multi_component_mode:
             if selected_item == "".join(self.multi_component_parts):
+                self.related_display_char = None
                 self._render_intersection(self.multi_component_parts)
                 self._clear_left_panel()
             else:
@@ -2750,6 +2753,7 @@ class HanziComponentSearchTool:
     def update_char_info(self, char):
         """更新字符資訊（支援 IDS 切換）"""
         self.current_char = char
+        self.related_display_char = char
         data = self.core.get_data(char)
 
         if data:
@@ -3085,54 +3089,61 @@ class HanziComponentSearchTool:
         參數:
         char: 可選，指定要顯示的字符。若為 None 則使用 self.current_char。
         """
-        # 若傳入 char 則使用，否則使用 self.current_char
-        display_char = char if char is not None else getattr(self, "current_char", None)
+        # Preserve an explicitly selected sub-component as the right-pane viewpoint
+        # when filters or view settings refresh the pane without a new char.
+        display_char = resolve_display_char(
+            char,
+            getattr(self, "related_display_char", None),
+            getattr(self, "current_char", None),
+        )
         if display_char is None:
             return
+        self.related_display_char = display_char
 
         display_lines = []
         charset = self.currentCharset if self.currentCharset else None
 
-        # 取得關聯字結果（透過 core），使用當前選中的 IDS 拆法
+        # 取得關聯字結果（透過 core），使用當前選中的 IDS 拆法。
+        # v1.2 position-aware semantics: upper section groups characters that
+        # contain the query by top-level IDC position (⿰1, ⿰2, ⿰1·, ⿱≡·, ∅).
         variant_index = getattr(self, "current_ids_index", 0)
-        sisters = self.core.find_sister_characters(display_char, charset, variant_index)
+        immediate_chars = [
+            c for c in self.core.search(display_char, charset) if c != display_char
+        ]
         related_chars = set()
-
-        # 檢查是否為獨體字
-        is_independent_char = "獨體字" in sisters
-        if is_independent_char:
-            display_lines.append(display_char)
 
         # 預先計算筆畫篩選參數（避免每次迴圈重複）
         stroke_max_diff = self._stroke_filter_max_diff()
 
-        # 顯示同字根（獨體字跳過此部分）
-        if not is_independent_char:
-            for positions, chars in sisters.get("結構相同部件同位", {}).items():
-                # 套用顏色篩選（透過 adapter）
-                filtered_chars = chars
-                if hasattr(self, "filter_colors") and len(self.filter_colors) > 0:
-                    font = self.adapter.get_current_font()
-                    filtered_chars = self.adapter.filter_by_color(
-                        filtered_chars, font, self.filter_colors
-                    )
+        filtered_immediate = immediate_chars
+        if hasattr(self, "filter_colors") and len(self.filter_colors) > 0:
+            font = self.adapter.get_current_font()
+            filtered_immediate = self.adapter.filter_by_color(
+                filtered_immediate, font, self.filter_colors
+            )
+        if stroke_max_diff is not None:
+            filtered_immediate = self.core.filter_by_strokes(
+                filtered_immediate, display_char, stroke_max_diff
+            )
 
-                # 套用筆畫篩選（OFF 時 stroke_max_diff 為 None → 跳過）
-                if stroke_max_diff is not None:
-                    filtered_chars = self.core.filter_by_strokes(
-                        filtered_chars, display_char, stroke_max_diff
-                    )
-
-                if filtered_chars:
-                    display_lines.append(f"{positions} {''.join(filtered_chars)}")
-                    related_chars.update(filtered_chars)
+        for line in self.core.compose_immediate_component_lines(
+            display_char, filtered_immediate, variant_index
+        ):
+            display_lines.append(line)
+            if " " in line:
+                related_chars.update(
+                    ch
+                    for ch in line.split(" ", 1)[1]
+                    if self.core.is_valid_character(ch)
+                )
 
         # 檢查是否啟用衍生字顯示
+        position_section_has_lines = bool(display_lines)
         if self.show_derived:
             derived_groups = self.core.find_derived_characters(display_char, charset)
             if derived_groups:
                 # 先加入分隔線
-                if display_lines:
+                if position_section_has_lines:
                     display_lines.append("-" * 3)
 
                 # 過濾並加入衍生字結果
@@ -3155,6 +3166,9 @@ class HanziComponentSearchTool:
 
                     if filtered_chars:
                         display_lines.append(f"{component} {''.join(filtered_chars)}")
+
+        if not display_lines:
+            display_lines.append(display_char)
 
         display_text = "\n".join(display_lines) if display_lines else display_char
         self._set_related_output(
