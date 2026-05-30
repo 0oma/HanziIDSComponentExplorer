@@ -5,7 +5,9 @@ Hanzi Component Explorer - 本地化字串模組
 提供 UI 介面多語言支援，使用 Glyphs.localize() API
 支援語言：en, zh-Hant, zh-Hans, ja
 
-© 2025 TzuYuan Yin
+Original copyright © 2025 TzuYuan Yin
+Fork modifications copyright © 2026 Ooma Kobayashi
+Modified from the original upstream project.
 """
 
 from __future__ import division, print_function, unicode_literals

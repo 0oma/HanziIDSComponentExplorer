@@ -4,7 +4,9 @@
 Hanzi Component Explorer - 核心邏輯層
 完全獨立的漢字分析引擎，無任何 UI 或 Glyphs 依賴
 
-© 2025 TzuYuan Yin
+Original copyright © 2025 TzuYuan Yin
+Fork modifications copyright © 2026 Ooma Kobayashi
+Modified from the original upstream project.
 """
 
 from __future__ import division, print_function, unicode_literals

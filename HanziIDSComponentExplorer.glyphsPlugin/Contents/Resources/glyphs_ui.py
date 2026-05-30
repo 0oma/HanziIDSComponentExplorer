@@ -4,7 +4,9 @@
 Hanzi Component Explorer - Glyphs UI 層
 使用 vanilla 框架的 Glyphs 外掛介面
 
-© 2025 TzuYuan Yin
+Original copyright © 2025 TzuYuan Yin
+Fork modifications copyright © 2026 Ooma Kobayashi
+Modified from the original upstream project.
 """
 
 from __future__ import division, print_function, unicode_literals

@@ -5,7 +5,9 @@
 #   Hanzi IDS Component Explorer
 #   A Glyphs plugin for exploring Chinese character components using IDS (Ideographic Description Sequences)
 #
-#   Copyright (c) 2026 TzuYuan Yin
+#   Original copyright (c) 2026 TzuYuan Yin
+#   Fork modifications copyright (c) 2026 Ooma Kobayashi
+#   Modified from the original upstream project.
 #   https://github.com/yintzuyuan
 #
 ###########################################################################################################

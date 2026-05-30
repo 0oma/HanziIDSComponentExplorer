@@ -17,7 +17,7 @@
 	<key>CFBundleVersion</key>
 	<string>11</string>
 	<key>NSHumanReadableCopyright</key>
-	<string>Original copyright 2026 TzuYuan Yin; modified fork 2026</string>
+	<string>Original copyright 2026 TzuYuan Yin; fork modifications copyright 2026 Ooma Kobayashi</string>
 	<key>NSPrincipalClass</key>
 	<string>HanziIDSComponentExplorer</string>
 	<key>PyMainFileNames</key>

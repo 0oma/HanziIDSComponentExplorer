@@ -62,13 +62,17 @@
 
 程式碼以 [Apache License 2.0](LICENSE) 授權。
 
+本儲存庫是原專案的 fork；原始著作權歸 **殷慈遠 TzuYuan Yin** 所有，fork 中的修改部分 © 2026 [Ooma Kobayashi](https://ooma.jp)。依 Apache License 2.0 第 4 條，已保留原始權利與出處標示，並在 [NOTICE](NOTICE) 中標明本 fork 可能包含修改。
+
 本外掛內含的 `ids.pdata` 為 [CHISE IDS](https://www.chise.org/ids/) 衍生資料，受 [GPL-2.0-or-later](LICENSES/GPL-2.0-or-later.txt) 約束。CNS11643 資料依[政府資料開放授權條款](https://data.gov.tw/license)使用。
 
 詳見 [NOTICE](NOTICE)。
 
 ## 作者與致謝
 
-**殷慈遠 TzuYuan Yin** — [erikyin.net](https://erikyin.net)
+原作者：**殷慈遠 TzuYuan Yin** — [erikyin.net](https://erikyin.net)
+
+本 fork 包含 2026 年 [Ooma Kobayashi](https://ooma.jp) 的修改。
 
 感謝 [CHISE Project](https://www.chise.org/)、[全字庫](https://www.cns11643.gov.tw/) 與 [3type/EOD](https://github.com/3type/EOD)。
 
@@ -134,13 +138,17 @@ If the plugin is available in Glyphs Plugin Manager, install it from *Window > P
 
 Source code is licensed under the [Apache License 2.0](LICENSE).
 
+This repository is a fork of the original project. Original copyright remains with **TzuYuan Yin**; modifications in this fork are © 2026 [Ooma Kobayashi](https://ooma.jp). In accordance with Apache License 2.0 section 4, original rights and attribution notices are retained, and [NOTICE](NOTICE) states that this fork may contain modified files.
+
 The bundled `ids.pdata` is derived from the [CHISE IDS](https://www.chise.org/ids/) database and is subject to [GPL-2.0-or-later](LICENSES/GPL-2.0-or-later.txt). CNS11643 data is used under the [Open Government Data License, Taiwan](https://data.gov.tw/license).
 
 See [NOTICE](NOTICE) for details.
 
 ## Author and acknowledgments
 
-**TzuYuan Yin** — [erikyin.net](https://erikyin.net)
+Original author: **TzuYuan Yin** — [erikyin.net](https://erikyin.net)
+
+This fork includes modifications made in 2026 by [Ooma Kobayashi](https://ooma.jp).
 
 Thanks to the [CHISE Project](https://www.chise.org/), [CNS11643](https://www.cns11643.gov.tw/), and [3type/EOD](https://github.com/3type/EOD).
 
@@ -206,16 +214,20 @@ Glyphs のプラグインマネージャーに登録されている場合は、*
 
 ソースコードは [Apache License 2.0](LICENSE) でライセンスされています。
 
+本リポジトリは原プロジェクトの fork です。原著作権は **TzuYuan Yin / 殷慈遠** に帰属し、本 fork における変更部分は © 2026 [Ooma Kobayashi](https://ooma.jp) に帰属します。Apache License 2.0 第 4 条に従い、原著作権表示・出所表示を保持し、[NOTICE](NOTICE) に本 fork が変更済みファイルを含み得ることを明記しています。
+
 同梱の `ids.pdata` は [CHISE IDS](https://www.chise.org/ids/) 由来のデータで、[GPL-2.0-or-later](LICENSES/GPL-2.0-or-later.txt) の対象です。CNS11643 データは [台湾政府資料開放授權條款](https://data.gov.tw/license) に基づいて使用しています。
 
 詳しくは [NOTICE](NOTICE) を参照してください。
 
 ## 作者・謝辞
 
-**TzuYuan Yin / 殷慈遠** — [erikyin.net](https://erikyin.net)
+原作者：**TzuYuan Yin / 殷慈遠** — [erikyin.net](https://erikyin.net)
+
+本 fork には 2026 年の [Ooma Kobayashi](https://ooma.jp) による変更が含まれます。
 
 [CHISE Project](https://www.chise.org/)、[全字庫 CNS11643](https://www.cns11643.gov.tw/)、[3type/EOD](https://github.com/3type/EOD) に感謝します。
 
 ---
 
-Copyright 2026 TzuYuan Yin
+Original copyright 2026 TzuYuan Yin; fork modifications copyright 2026 Ooma Kobayashi

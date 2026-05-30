@@ -8,10 +8,16 @@ requires-python = ">=3.9"
 authors = [
     {name = "TzuYuan Yin", email = "yintzuyuan@erikyin.net"}
 ]
+maintainers = [
+    {name = "Ooma Kobayashi"}
+]
 
 dependencies = [
     "python-dotenv>=1.0.0",
 ]
+
+[project.urls]
+"Fork maintainer" = "https://ooma.jp"
 
 [project.optional-dependencies]
 dev = [
