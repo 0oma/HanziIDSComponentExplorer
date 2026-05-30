@@ -65,7 +65,7 @@ def download_data_sources() -> None:
 def copy_to_plugin(pdata_path: Path) -> None:
     """複製 pdata 到外掛目錄"""
     plugin_data_dir = Path(
-        "HanziIDSComponentExplorer.glyphsPlugin/Contents/Resources/data"
+        "HanziComponentExplorerRSplus.glyphsPlugin/Contents/Resources/data"
     )
 
     if not plugin_data_dir.exists():

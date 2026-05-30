@@ -1,7 +1,7 @@
-# MenuTitle: 漢字部品検索
+# MenuTitle: 漢字部品検索 RS+
 # -*- coding: utf-8 -*-
 """
-Hanzi Component Explorer - Glyphs UI 層
+Hanzi Component Explorer RS+ - Glyphs UI 層
 使用 vanilla 框架的 Glyphs 外掛介面
 
 Original copyright © 2025 TzuYuan Yin
@@ -399,7 +399,7 @@ class HanziComponentSearchTool:
             window_title,
             minSize=(720, 500),
             maxSize=(1600, 1200),
-            autosaveName="com.HanziIDSComponentExplorer.GUIEnhancedFork.MainWindow",
+            autosaveName="com.HanziComponentExplorerRSplus.MainWindow",
         )
 
         # === 頂部搜尋區域 ===

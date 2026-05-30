@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- Simplified the visible plugin name to `Hanzi Component Explorer`.
+- Simplified the visible plugin name to `Hanzi Component Explorer RS+`.
 - Cleaned user-facing labels and hints so they describe current actions and status instead of development/version history.
 - Refined card and tile borders to a lighter, quieter appearance while keeping selection and status cues visible.
 
