@@ -2,7 +2,7 @@
 
 ###########################################################################################################
 #
-#   Hanzi IDS Component Explorer
+#   HanziComponentExplorerRS+
 #   A Glyphs plugin for exploring Chinese character components using IDS (Ideographic Description Sequences)
 #
 #   Original copyright (c) 2026 TzuYuan Yin
@@ -18,17 +18,17 @@ from GlyphsApp import Glyphs, WINDOW_MENU
 from GlyphsApp.plugins import GeneralPlugin
 
 
-class HanziIDSComponentExplorer(GeneralPlugin):
+class HanziComponentExplorerRSplus(GeneralPlugin):
     """漢字 IDS 部件查詢外掛"""
 
     @objc.python_method
     def settings(self):
         """初始化設定 - 外掛載入時呼叫一次"""
         self.name = Glyphs.localize({
-            'en': 'Hanzi Component Explorer',
-            'zh-Hant': '漢字部件查詢',
-            'zh-Hans': '汉字部件查询',
-            'ja': '漢字部品検索',
+            'en': 'HanziComponentExplorerRS+',
+            'zh-Hant': '漢字部件查詢 RS+',
+            'zh-Hans': '汉字部件查询 RS+',
+            'ja': '漢字部品検索 RS+',
         })
         self.tool = None  # 延遲初始化
 

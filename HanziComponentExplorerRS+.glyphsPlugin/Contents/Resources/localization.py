@@ -1,6 +1,6 @@
 # encoding: utf-8
 """
-Hanzi Component Explorer - 本地化字串模組
+HanziComponentExplorerRS+ - 本地化字串模組
 
 提供 UI 介面多語言支援，使用 Glyphs.localize() API
 支援語言：en, zh-Hant, zh-Hans, ja
@@ -16,10 +16,10 @@ from __future__ import division, print_function, unicode_literals
 STRINGS = {
     # 視窗與標題
     "window_title": {
-        "en": "Hanzi Component Explorer",
-        "zh-Hant": "漢字部件查詢",
-        "zh-Hans": "汉字部件查询",
-        "ja": "漢字部品検索",
+        "en": "HanziComponentExplorerRS+",
+        "zh-Hant": "漢字部件查詢 RS+",
+        "zh-Hans": "汉字部件查询 RS+",
+        "ja": "漢字部品検索 RS+",
     },
     "search_placeholder": {
         "en": "Enter character or Unicode",

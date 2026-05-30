@@ -7,7 +7,7 @@ from pathlib import Path
 
 PLUGIN_RESOURCES = (
     Path(__file__).parent.parent
-    / "HanziIDSComponentExplorer.glyphsPlugin"
+    / "HanziComponentExplorerRS+.glyphsPlugin"
     / "Contents"
     / "Resources"
 )

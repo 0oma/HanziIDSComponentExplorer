@@ -220,7 +220,7 @@ class TestStrokeDataIntegration:
         # 動態 import 避免在 collect 階段就要求 Resources 存在
         plugin_resources = (
             Path(__file__).parent.parent
-            / "HanziIDSComponentExplorer.glyphsPlugin"
+            / "HanziComponentExplorerRS+.glyphsPlugin"
             / "Contents"
             / "Resources"
         )
@@ -275,7 +275,7 @@ class TestOutputConsistency:
     def test_compare_with_existing(self, tmp_path):
         """測試與現有 pdata 一致性"""
         existing_pdata = Path(
-            "HanziIDSComponentExplorer.glyphsPlugin/Contents/Resources/data/ids.pdata"
+            "HanziComponentExplorerRS+.glyphsPlugin/Contents/Resources/data/ids.pdata"
         )
 
         if not existing_pdata.exists():

@@ -1,5 +1,5 @@
 [project]
-name = "hanzi-ids-component-explorer"
+name = "hanzi-component-explorer-rsplus"
 version = "1.6.4-gui"
 description = "Glyphs plugin for exploring Chinese character IDS components"
 readme = "README.md"

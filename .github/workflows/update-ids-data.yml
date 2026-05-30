@@ -39,7 +39,7 @@ jobs:
       - name: Check for changes
         id: check
         run: |
-          if git diff --quiet HanziIDSComponentExplorer.glyphsPlugin/Contents/Resources/data/ids.pdata; then
+          if git diff --quiet HanziComponentExplorerRS+.glyphsPlugin/Contents/Resources/data/ids.pdata; then
             echo "has_changes=false" >> $GITHUB_OUTPUT
           else
             echo "has_changes=true" >> $GITHUB_OUTPUT

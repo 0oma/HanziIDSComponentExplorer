@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Hanzi Component Explorer - 核心邏輯層
+HanziComponentExplorerRS+ - 核心邏輯層
 完全獨立的漢字分析引擎，無任何 UI 或 Glyphs 依賴
 
 Original copyright © 2025 TzuYuan Yin
@@ -28,11 +28,76 @@ ERROR_SEARCH_FAILED = "搜尋失敗"
 # IDS 分隔字符 (Ideographic Description Characters)
 IDC_CHARS = "⿰⿱⿲⿳⿴⿵⿶⿷⿸⿹⿺⿻〾"
 
+# 每個 IDC 帶的 operand 個數（IDS 標準）：
+# 二元：⿰⿱⿴⿵⿶⿷⿸⿹⿺⿻；三元：⿲⿳；一元：〾（變體）
+IDC_ARITY = {
+    "⿰": 2,
+    "⿱": 2,
+    "⿲": 3,
+    "⿳": 3,
+    "⿴": 2,
+    "⿵": 2,
+    "⿶": 2,
+    "⿷": 2,
+    "⿸": 2,
+    "⿹": 2,
+    "⿺": 2,
+    "⿻": 2,
+    "〾": 1,
+}
+
+# 位置分組標籤的展示順序（IDC 主序、位置升序、≡ 在最後、direct before nested）
+IDC_ORDER = "⿰⿱⿲⿳⿴⿵⿶⿷⿸⿹⿺⿻〾∅"
+MULTI_POSITION_MARKER = "≡"
+NESTED_POSITION_MARKER = "·"
+UNCLASSIFIED_LABEL = "∅"
+
 # 應做 NFKC 正規化的 Unicode 區塊（CJK 相關變體）
 # 康熙部首 (2F00-2FD5): ⽊→木
 # CJK 相容字 BMP (F900-FAFF): 虜→虜
 # CJK 相容字補充 SIP (2F800-2FA1F): 巢(U+2F882)→巢(U+5DE2)
 _NFKC_RANGES = ((0x2F00, 0x2FD5), (0xF900, 0xFAFF), (0x2F800, 0x2FA1F))
+
+
+def _skip_one_operand(tokens: List[str], pos: int) -> int:
+    """跳過 tokens 從 pos 起的一個完整 operand（含遞迴子結構）。"""
+    if pos >= len(tokens):
+        return pos
+    token = tokens[pos]
+    arity = IDC_ARITY.get(token)
+    if arity is None:
+        return pos + 1
+    pos += 1
+    for _ in range(arity):
+        pos = _skip_one_operand(tokens, pos)
+    return pos
+
+
+def _split_top_operands(tokens: List[str]) -> List[List[str]]:
+    """將 IDS tokens 按頂層 IDC 切成 operands sub-list。"""
+    if not tokens:
+        return []
+    arity = IDC_ARITY.get(tokens[0])
+    if arity is None:
+        return []
+    operands: List[List[str]] = []
+    pos = 1
+    for _ in range(arity):
+        if pos >= len(tokens):
+            break
+        start = pos
+        pos = _skip_one_operand(tokens, pos)
+        operands.append(tokens[start:pos])
+    return operands
+
+
+def resolve_display_char(
+    char: Optional[str], sticky: Optional[str], current: Optional[str]
+) -> Optional[str]:
+    """決定右欄顯示字：明示參數 > sticky 右欄視角 > current 本字。"""
+    if char is not None:
+        return char
+    return sticky or current
 
 
 def _normalize_cjk_variant(char: str) -> str:
@@ -505,6 +570,196 @@ class HanziCore:
                 self._collect_recursive(
                     comp, depth + 1, max_depth, visiting | {char}, counter
                 )
+
+    def format_position_label(
+        self,
+        idc: Optional[str],
+        positions,
+        nested: bool = False,
+    ) -> str:
+        """Format a position group label such as ⿰1, ⿱≡, ⿲3·, or ∅."""
+        if not idc or idc not in IDC_ARITY:
+            return UNCLASSIFIED_LABEL
+        if positions is None:
+            return UNCLASSIFIED_LABEL
+        if isinstance(positions, int):
+            marker = str(positions)
+        else:
+            unique_positions = []
+            for pos in positions:
+                if pos not in unique_positions:
+                    unique_positions.append(pos)
+            if not unique_positions:
+                return UNCLASSIFIED_LABEL
+            marker = (
+                str(unique_positions[0])
+                if len(unique_positions) == 1
+                else MULTI_POSITION_MARKER
+            )
+        return f"{idc}{marker}{NESTED_POSITION_MARKER if nested else ''}"
+
+    def _operand_directly_is(self, operand_tokens: List[str], query: str) -> bool:
+        """True if a top-level operand itself is exactly the query component."""
+        return (
+            len(operand_tokens) == 1
+            and _normalize_cjk_variant(operand_tokens[0]) == query
+        )
+
+    def _operand_contains(self, operand_tokens: List[str], query: str) -> bool:
+        """True if query occurs anywhere in this operand subtree."""
+        for token in operand_tokens:
+            if token in IDC_CHARS or token.startswith("&"):
+                continue
+            if _normalize_cjk_variant(token) == query:
+                return True
+            if self._component_contains_query(token, query):
+                return True
+        return False
+
+    def _top_position_contains(
+        self, tokens: List[str], query: str
+    ) -> Tuple[Optional[str], List[int], bool]:
+        """Return top IDC, matching 1-based positions, and whether matches are nested."""
+        if not tokens:
+            return None, [], False
+        idc = tokens[0]
+        if idc not in IDC_ARITY:
+            return None, [], False
+        direct_positions: List[int] = []
+        nested_positions: List[int] = []
+        for index, operand in enumerate(_split_top_operands(tokens), start=1):
+            if self._operand_directly_is(operand, query):
+                direct_positions.append(index)
+            elif self._operand_contains(operand, query):
+                nested_positions.append(index)
+        if direct_positions:
+            return idc, direct_positions, False
+        if nested_positions:
+            return idc, nested_positions, True
+        return idc, [], False
+
+    def _component_contains_query(
+        self, char: str, query: str, max_depth: int = 20
+    ) -> bool:
+        """Recursive containment check used for nested top-position classification."""
+        if _normalize_cjk_variant(char) == query:
+            return True
+        return self._component_contains_query_inner(
+            char, query, max_depth, frozenset()
+        )
+
+    def _component_contains_query_inner(self, char, query, depth, visiting) -> bool:
+        if depth <= 0 or not char or char in visiting:
+            return False
+        data = self.db.get(char)
+        if not data:
+            return False
+        for ids in self._selected_ids_list_for_tree(char, 0):
+            if not ids or not self._ids_is_expandable(ids, char):
+                continue
+            for token in self.parse_ids(ids)[0]:
+                if token in IDC_CHARS or token.startswith("&"):
+                    continue
+                norm = _normalize_cjk_variant(token)
+                if norm == query:
+                    return True
+                if self._component_contains_query_inner(
+                    norm, query, depth - 1, visiting | {char}
+                ):
+                    return True
+        return False
+
+    def _ids_variants_for_position_classification(
+        self, char: str, variant_index: int = 0
+    ) -> List[str]:
+        data = self.db.get(char)
+        if not data:
+            return []
+        ids_1 = data.get("ids_1") or ""
+        ids_2 = data.get("ids_2") or ""
+        if ids_2 == ids_1:
+            ids_2 = ""
+        if variant_index == -1:
+            return [ids for ids in (ids_1, ids_2) if ids]
+        if variant_index == 1:
+            return [ids_2 or ids_1] if (ids_2 or ids_1) else []
+        return [ids_1 or ids_2] if (ids_1 or ids_2) else []
+
+    def classify_by_position(
+        self, query: str, target_char: str, variant_index: int = 0
+    ) -> str:
+        """Classify where query appears in target_char's top-level IDS structure."""
+        if not query or not target_char:
+            return UNCLASSIFIED_LABEL
+        normalized_query = _normalize_cjk_variant(query)
+        for ids in self._ids_variants_for_position_classification(
+            target_char, variant_index
+        ):
+            tokens = self.parse_ids(ids)[0]
+            idc, positions, nested = self._top_position_contains(
+                tokens, normalized_query
+            )
+            if positions:
+                return self.format_position_label(idc, positions, nested)
+            if (
+                len(tokens) == 1
+                and _normalize_cjk_variant(tokens[0]) == normalized_query
+            ):
+                return UNCLASSIFIED_LABEL
+        return UNCLASSIFIED_LABEL
+
+    def _position_label_sort_key(self, label: str):
+        if label == UNCLASSIFIED_LABEL:
+            return (len(IDC_ORDER), 99, 1, label)
+        idc = label[0]
+        order = IDC_ORDER.find(idc)
+        if order < 0:
+            order = len(IDC_ORDER)
+        nested = label.endswith(NESTED_POSITION_MARKER)
+        marker = label[1:-1] if nested else label[1:]
+        if marker == MULTI_POSITION_MARKER:
+            position = 98
+        else:
+            try:
+                position = int(marker)
+            except Exception:
+                position = 99
+        return (order, 1 if nested else 0, position, label)
+
+    def group_by_position(
+        self,
+        query: str,
+        chars: List[str],
+        variant_index: int = 0,
+        coarse_by_idc: bool = False,
+    ) -> Dict[str, List[str]]:
+        """Group chars by query position labels, preserving direct-before-nested ordering."""
+        groups: Dict[str, List[str]] = {}
+        for char in chars:
+            label = self.classify_by_position(query, char, variant_index)
+            if coarse_by_idc and label != UNCLASSIFIED_LABEL:
+                label = label[0]
+            groups.setdefault(label, []).append(char)
+        return {
+            label: groups[label]
+            for label in sorted(groups.keys(), key=self._position_label_sort_key)
+        }
+
+    def compose_immediate_component_lines(
+        self,
+        query: str,
+        chars: List[str],
+        variant_index: int = 0,
+        coarse_by_idc: bool = False,
+    ) -> List[str]:
+        """Return compact display lines: '<position-label> <chars>' for right pane."""
+        return [
+            f"{label} {''.join(group_chars)}"
+            for label, group_chars in self.group_by_position(
+                query, chars, variant_index, coarse_by_idc=coarse_by_idc
+            ).items()
+            if group_chars
+        ]
 
     def find_sister_characters(
         self, char: str, charset: Optional[Set[str]] = None, variant_index: int = 0
@@ -1094,7 +1349,7 @@ def is_complete_search_input(text: str) -> bool:
 if __name__ == "__main__":
     """測試核心引擎功能"""
 
-    print("=== Hanzi Component Explorer - 核心引擎測試 ===\n")
+    print("=== HanziComponentExplorerRS+ - 核心引擎測試 ===\n")
 
     # 初始化核心引擎
     try:

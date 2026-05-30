@@ -4,12 +4,12 @@
 
 # 中文
 
-# 漢字部件查詢
+# 漢字部件查詢 RS+
 
 [Glyphs](https://glyphsapp.com/) 字型編輯器外掛，用於拆解漢字 IDS 結構、查詢相關字符，並在 Glyphs 目前開啟的字型檔中確認製作狀態。
 
 <p align="center">
-  <img src="screenshot.png" alt="漢字部件查詢截圖" width="500">
+  <img src="screenshot.png" alt="漢字部件查詢 RS+ 截圖" width="500">
 </p>
 
 ## 主要功能
@@ -31,10 +31,10 @@
 
 ### 手動安裝
 
-1. 下載 `HanziIDSComponentExplorer.glyphsPlugin`。
+1. 下載 `HanziComponentExplorerRS+.glyphsPlugin`。
 2. 雙擊外掛檔案進行安裝。
 3. 重新啟動 Glyphs。
-4. 從 *視窗 > 漢字部件查詢* 開啟。
+4. 從 *視窗 > 漢字部件查詢 RS+* 開啟。
 
 ### 外掛程式管理員
 
@@ -42,7 +42,7 @@
 
 ## 使用方式
 
-1. 開啟 *視窗 > 漢字部件查詢*。
+1. 開啟 *視窗 > 漢字部件查詢 RS+*。
 2. 在搜尋欄輸入漢字，例如「森」，或輸入 Unicode，例如「68EE」。
 3. 左側查看目前字符與製作狀態，中間查看 IDS 樹狀拆解，右側查看相關字磚。
 4. 輸入多個部件，例如「氵木」，即可搜尋同時包含所有部件的字符。
@@ -80,12 +80,12 @@
 
 # English
 
-# Hanzi Component Explorer
+# HanziComponentExplorerRS+
 
 A [Glyphs](https://glyphsapp.com/) plugin for decomposing Hanzi IDS structures, exploring related characters, and checking production status in the currently open Glyphs font.
 
 <p align="center">
-  <img src="screenshot.png" alt="Hanzi Component Explorer screenshot" width="500">
+  <img src="screenshot.png" alt="HanziComponentExplorerRS+ screenshot" width="500">
 </p>
 
 ## Features
@@ -107,10 +107,10 @@ A [Glyphs](https://glyphsapp.com/) plugin for decomposing Hanzi IDS structures, 
 
 ### Manual installation
 
-1. Download `HanziIDSComponentExplorer.glyphsPlugin`.
+1. Download `HanziComponentExplorerRS+.glyphsPlugin`.
 2. Double-click the plugin file to install it.
 3. Restart Glyphs.
-4. Open it from *Window > Hanzi Component Explorer*.
+4. Open it from *Window > HanziComponentExplorerRS+*.
 
 ### Plugin Manager
 
@@ -118,7 +118,7 @@ If the plugin is available in Glyphs Plugin Manager, install it from *Window > P
 
 ## Usage
 
-1. Open *Window > Hanzi Component Explorer*.
+1. Open *Window > HanziComponentExplorerRS+*.
 2. Enter a Hanzi character, such as “森”, or a Unicode value, such as “68EE”.
 3. Use the left pane for the current character and production status, the middle pane for IDS decomposition, and the right pane for related character tiles.
 4. Enter multiple components, such as “氵木”, to find characters containing all of them.
@@ -156,12 +156,12 @@ Thanks to the [CHISE Project](https://www.chise.org/), [CNS11643](https://www.cn
 
 # 日本語
 
-# 漢字部品検索
+# 漢字部品検索 RS+
 
 [Glyphs](https://glyphsapp.com/) 用のプラグインです。漢字の IDS 構造を分解し、関連字を検索しながら、現在開いている Glyphs フォント内での制作状況を確認できます。
 
 <p align="center">
-  <img src="screenshot.png" alt="漢字部品検索のスクリーンショット" width="500">
+  <img src="screenshot.png" alt="漢字部品検索 RS+ のスクリーンショット" width="500">
 </p>
 
 ## 主な機能
@@ -183,10 +183,10 @@ Thanks to the [CHISE Project](https://www.chise.org/), [CNS11643](https://www.cn
 
 ### 手動インストール
 
-1. `HanziIDSComponentExplorer.glyphsPlugin` をダウンロードします。
+1. `HanziComponentExplorerRS+.glyphsPlugin` をダウンロードします。
 2. プラグインファイルをダブルクリックしてインストールします。
 3. Glyphs を再起動します。
-4. *ウィンドウ > 漢字部品検索* から開きます。
+4. *ウィンドウ > 漢字部品検索 RS+* から開きます。
 
 ### プラグインマネージャー
 
@@ -194,7 +194,7 @@ Glyphs のプラグインマネージャーに登録されている場合は、*
 
 ## 使い方
 
-1. *ウィンドウ > 漢字部品検索* を開きます。
+1. *ウィンドウ > 漢字部品検索 RS+* を開きます。
 2. 「森」のような漢字、または「68EE」のような Unicode を検索欄に入力します。
 3. 左ペインで現在字と制作状況、中ペインで IDS 分解、右ペインで関連字タイルを確認します。
 4. 「氵木」のように複数部品を入力すると、それらをすべて含む字を検索できます。
