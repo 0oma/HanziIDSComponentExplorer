@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Hanzi Component Explorer - 核心邏輯層
+Hanzi Component Explorer RS+ - 核心邏輯層
 完全獨立的漢字分析引擎，無任何 UI 或 Glyphs 依賴
 
 Original copyright © 2025 TzuYuan Yin
@@ -1349,7 +1349,7 @@ def is_complete_search_input(text: str) -> bool:
 if __name__ == "__main__":
     """測試核心引擎功能"""
 
-    print("=== Hanzi Component Explorer - 核心引擎測試 ===\n")
+    print("=== Hanzi Component Explorer RS+ - 核心引擎測試 ===\n")
 
     # 初始化核心引擎
     try:

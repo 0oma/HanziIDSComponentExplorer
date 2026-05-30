@@ -14,7 +14,7 @@ import pytest
 # 將外掛 Resources 目錄加入路徑
 PLUGIN_RESOURCES = (
     Path(__file__).parent.parent
-    / "HanziIDSComponentExplorer.glyphsPlugin"
+    / "HanziComponentExplorerRSplus.glyphsPlugin"
     / "Contents"
     / "Resources"
 )

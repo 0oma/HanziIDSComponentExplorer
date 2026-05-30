@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Hanzi Component Explorer - Glyphs 適配層
+Hanzi Component Explorer RS+ - Glyphs 適配層
 封裝所有 Glyphs API 呼叫，隔離 Glyphs 依賴
 
 Original copyright © 2025 TzuYuan Yin
@@ -508,7 +508,7 @@ class GlyphsAdapter:
 class GlyphsSettings:
     """Glyphs 設定管理器（封裝 Glyphs.defaults）"""
 
-    PREFIX = "com.HanziIDSComponentExplorer.GUIEnhancedFork"
+    PREFIX = "com.HanziComponentExplorerRSplus"
 
     @classmethod
     def get(cls, key: str, default=None) -> Any:
@@ -558,7 +558,7 @@ class GlyphsSettings:
 if __name__ == '__main__':
     """測試 Glyphs 適配器功能"""
 
-    print("=== Hanzi Component Explorer - Glyphs 適配器測試 ===\n")
+    print("=== Hanzi Component Explorer RS+ - Glyphs 適配器測試 ===\n")
 
     # 測試 1：取得當前字型
     print("【測試 1：取得當前字型】")

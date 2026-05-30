@@ -5,11 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.6.4-gui] - 2026-05-30
+## [1.6.4+RSplus] - 2026-05-30
 
 ### Changed
 
-- Simplified the visible plugin name to `Hanzi Component Explorer`.
+- Simplified the visible plugin name to `Hanzi Component Explorer RS+`.
+- Renamed the fork version suffix from `-gui` to `+RSplus` to match the RS+ plugin rename while keeping version metadata compatible.
 - Cleaned user-facing labels and hints so they describe current actions and status instead of development/version history.
 - Refined card and tile borders to a lighter, quieter appearance while keeping selection and status cues visible.
 
