@@ -7,17 +7,17 @@
 	<key>CFBundleExecutable</key>
 	<string>plugin</string>
 	<key>CFBundleIdentifier</key>
-	<string>com.YinTzuYuan.HanziIDSComponentExplorer</string>
+	<string>com.HanziIDSComponentExplorer.GUIEnhancedFork</string>
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>
-	<string>Hanzi IDS Component Explorer</string>
+	<string>Hanzi Component Explorer</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.1.1</string>
+	<string>1.6.4-gui</string>
 	<key>CFBundleVersion</key>
-	<string>5</string>
+	<string>11</string>
 	<key>NSHumanReadableCopyright</key>
-	<string>Copyright 2026 TzuYuan Yin</string>
+	<string>Original copyright 2026 TzuYuan Yin; modified fork 2026</string>
 	<key>NSPrincipalClass</key>
 	<string>HanziIDSComponentExplorer</string>
 	<key>PyMainFileNames</key>

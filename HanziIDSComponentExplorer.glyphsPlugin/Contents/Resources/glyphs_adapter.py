@@ -102,6 +102,135 @@ class GlyphsAdapter:
         return characters
 
     @staticmethod
+    def find_glyph_for_char(font, char: str):
+        """Return the Glyphs glyph object for a character when available."""
+        if not font or not char:
+            return None
+        try:
+            if char in font.glyphs:
+                return font.glyphs[char]
+        except Exception:
+            pass
+        try:
+            unicode_val = f"{ord(char):04X}"
+            for name in (f"uni{unicode_val}", unicode_val):
+                try:
+                    if name in font.glyphs:
+                        return font.glyphs[name]
+                except Exception:
+                    pass
+            try:
+                return font.glyphForUnicode(ord(char))
+            except Exception:
+                return None
+        except Exception:
+            return None
+
+    @staticmethod
+    def get_glyph_layer(font, char: str):
+        """Return the active-master layer for a character when available."""
+        glyph = GlyphsAdapter.find_glyph_for_char(font, char)
+        if not glyph or not font:
+            return None
+        try:
+            master_id = font.selectedFontMaster.id
+            if master_id in glyph.layers:
+                return glyph.layers[master_id]
+        except Exception:
+            pass
+        try:
+            if glyph.layers:
+                return glyph.layers[0]
+        except Exception:
+            pass
+        return None
+
+    @staticmethod
+    def is_layer_designed(layer) -> bool:
+        """Heuristic: True when the layer contains outlines, components, anchors, or hints."""
+        if not layer:
+            return False
+        for attr in ("paths", "components"):
+            try:
+                if getattr(layer, attr):
+                    return True
+            except Exception:
+                pass
+        try:
+            # Some generated/component layers expose completeBezierPath even when paths is empty.
+            path = getattr(layer, "completeBezierPath", None) or getattr(layer, "bezierPath", None)
+            if callable(path):
+                path = path()
+            if path and not path.bounds().size.width == 0 and not path.bounds().size.height == 0:
+                return True
+        except Exception:
+            pass
+        return False
+
+    @staticmethod
+    def get_glyph_design_status(font, char: str) -> dict:
+        """Return glyph existence/design status used by the GUI preview badges."""
+        glyph = GlyphsAdapter.find_glyph_for_char(font, char)
+        if not glyph:
+            return {"exists": False, "designed": False, "glyphName": None, "color": None}
+        layer = GlyphsAdapter.get_glyph_layer(font, char)
+        designed = GlyphsAdapter.is_layer_designed(layer)
+        color = getattr(glyph, "color", None)
+        glyph_name = getattr(glyph, "name", None)
+        return {"exists": True, "designed": designed, "glyphName": glyph_name, "color": color}
+
+    @staticmethod
+    def draw_glyph_preview_image(font, char: str, size: int = 96):
+        """Draw the current Glyphs layer into an NSImage for compact previews.
+
+        Falls back to None when the glyph is missing or drawing fails. This keeps the
+        rest of the plugin usable outside an active Glyphs drawing context.
+        """
+        try:
+            from AppKit import NSImage, NSColor, NSAffineTransform, NSMakeRect, NSRectFill
+        except Exception:
+            return None
+        layer = GlyphsAdapter.get_glyph_layer(font, char)
+        if not GlyphsAdapter.is_layer_designed(layer):
+            return None
+        try:
+            path = getattr(layer, "completeBezierPath", None) or getattr(layer, "bezierPath", None)
+            if callable(path):
+                path = path()
+            if not path:
+                return None
+            path = path.copy()
+            bounds = path.bounds()
+            if bounds.size.width <= 0 or bounds.size.height <= 0:
+                return None
+
+            padding = max(6, int(size * 0.10))
+            available = max(1, size - padding * 2)
+            scale = min(available / bounds.size.width, available / bounds.size.height)
+            offset_x = (size - bounds.size.width * scale) / 2.0
+            offset_y = (size - bounds.size.height * scale) / 2.0
+
+            transform = NSAffineTransform.transform()
+            transform.translateXBy_yBy_(offset_x, offset_y)
+            transform.scaleBy_(scale)
+            transform.translateXBy_yBy_(-bounds.origin.x, -bounds.origin.y)
+            path.transformUsingAffineTransform_(transform)
+
+            image = NSImage.alloc().initWithSize_((size, size))
+            image.lockFocus()
+            NSColor.clearColor().setFill()
+            NSRectFill(NSMakeRect(0, 0, size, size))
+            try:
+                NSColor.labelColor().setFill()
+            except Exception:
+                NSColor.blackColor().setFill()
+            path.fill()
+            image.unlockFocus()
+            return image
+        except Exception:
+            return None
+
+    @staticmethod
     def get_glyph_color(font, char: str) -> Optional[int]:
         """
         取得 glyph 的顏色標籤
@@ -257,6 +386,43 @@ class GlyphsAdapter:
         tab.text = new_text
         tab.layersCursor = cursor + len(text)
 
+    @staticmethod
+    def open_text_in_new_tab(font, text: str) -> bool:
+        """Open text in a new Glyphs edit tab.
+
+        Returns True when a new tab was created, False when Glyphs did not expose
+        a usable tab API or no font/text is available.
+        """
+        if not font or not text:
+            return False
+
+        # Glyphs 3 exposes font.newTab(text) in normal plugin contexts.
+        try:
+            tab = font.newTab(text)
+            try:
+                if tab is not None:
+                    tab.text = text
+            except Exception:
+                pass
+            return True
+        except Exception:
+            pass
+
+        # Conservative fallback for API variants where newTab takes no initial text.
+        try:
+            tab = font.newTab()
+            if tab is not None:
+                tab.text = text
+                try:
+                    tab.layersCursor = len(text)
+                except Exception:
+                    pass
+                return True
+        except Exception:
+            pass
+
+        return False
+
     # === IME 輸入狀態偵測 ===
 
     @staticmethod
@@ -340,7 +506,7 @@ class GlyphsAdapter:
 class GlyphsSettings:
     """Glyphs 設定管理器（封裝 Glyphs.defaults）"""
 
-    PREFIX = "com.YinTzuYuan.HanziIDSComponentExplorer"
+    PREFIX = "com.HanziIDSComponentExplorer.GUIEnhancedFork"
 
     @classmethod
     def get(cls, key: str, default=None) -> Any:

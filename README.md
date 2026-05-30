@@ -10,6 +10,21 @@
   <img src="screenshot.png" alt="截圖" width="500">
 </p>
 
+
+## Hanzi Component Explorer
+
+この封裝版は v1.4.1 を起点に、右ペインの文字タイルと制作済みグリフ確認をさらにリッチにした 版 です。
+
+- **ステータス付き文字タイル** — 右側の関連字を `●字` / `○字` / `–字` / `★字` のような状態付きタイルとして表示します。
+- **タイル密度切替** — コンパクト・標準・ゆったりの3段階で、関連字の見え方を切り替えられます。
+- **制作進捗の常時表示** — サマリーに `●制作済み / ○グリフあり / –未作成 / ★お気に入り` の数と制作済み率を表示します。
+- **一覧プレビューバッジ** — 中央リスト上で `●` 制作済み、`○` グリフあり未作成、`–` 未作成を確認できます。
+- **制作済みグリフプレビュー** — 左側プレビューは、Glyphs の現在フォント内にアウトラインがある場合、そのレイヤーを画像として描画します。
+- **プレビュー情報の整理** — 左ペインに Unicode と画数を追加し、制作状態との対応を見やすくしました。
+- **カード型UI** — サマリー、プレビュー、詳細、分解リスト、関連字ペインを角丸カード風に整理しました。
+- **検索履歴・お気に入り・一括操作** — 最近の検索、★お気に入り、関連字だけコピー、関連字だけ一括挿入を追加しています。
+- **独立設定キー** — 版 版の bundle id / defaults prefix を分離し、原版と設定が干渉しにくい構成です。
+
 ## 功能
 
 - **字符拆解** — 輸入漢字，視覺化顯示其部件樹狀結構
@@ -79,6 +94,65 @@ A [Glyphs](https://glyphsapp.com/) font editor plugin for decomposing Chinese ch
   <img src="screenshot.png" alt="Screenshot" width="500">
 </p>
 
+
+## Hanzi Component Explorer
+
+This packaged 版 starts from v1.4.1 and further enriches the character-tile and in-font production preview workflow.
+
+- **Status-badged character tiles** — related characters are rendered as `●char` / `○char` / `–char` / `★char` tiles.
+- **Tile density control** — cycle between Compact, Comfortable, and Spacious tile layouts.
+- **Always-visible production stats** — the summary area shows counts for `● designed`, `○ glyph exists`, `– missing`, `★ favorite`, plus designed percentage.
+- **Modern connected decomposition tree** — the middle decomposition list uses compact connected tree branches and keeps status badges at the row end so branch alignment remains clean.
+- **List preview badges** — the middle decomposition list shows `●` designed, `○` glyph exists but empty, and `–` missing.
+- **Designed glyph preview** — when the current Glyphs font has outlines for a character, the left preview draws that actual layer as an image.
+- **Cleaner preview metadata** — Unicode and stroke count are shown directly under the preview status.
+- **Card-style interface** — the summary, preview, details, decomposition list, and related-character panes are visually separated.
+- **History, favorites, and bulk actions** — recent searches, ★ favorites, characters-only copy, and bulk insert are included.
+- **Isolated 版 settings** — bundle id and defaults prefix are separated from the upstream plugin.
+
+
+
+
+## v1.6.4 Clean UI
+
+- 右ペインのタイル表示をウィンドウ幅に合わせて自動折り返しするように調整
+- 選択タイルの右クリックメニューを追加
+  - 新規タブで開く
+  - 現在タブに挿入
+  - 文字コピー
+  - Unicodeコピー
+  - 先頭字を検索
+  - お気に入りへ追加/削除
+- フィルターに「制作済みのみ表示」を追加
+- 上部サマリーと左プレビューのステータス表示を整理
+
+## v1.6.2 樹形図表示
+
+- 既存のテキスト樹形図を確認し、`HanziCore.decompose()` の出力をコンパクトな接続型ツリーへ整理
+- 深層分解時も `│ / ├─ / └─` の枝が途切れにくいよう、親階層ごとの継続線を計算
+- 中央一覧の制作ステータスバッジを行頭から行末へ移し、枝の開始位置を揃えた
+- 中央一覧は可能なら等幅システムフォントを使い、枝線の視認性を改善
+- 文字抽出処理は新しい枝記号と `● / ○ / – / ★` を無視するよう更新
+
+## v1.6.1 Clean UI / Status Refactor
+
+- ステータス判定を `glyph_status.py` に分離し、一覧・タイル・サマリーの `● / ○ / – / ★` 表示を同じ判定に統一
+- Glyphsのグリフ状態取得を表示更新ごとにキャッシュし、右ペインの大量タイル表示で同じ文字の判定を繰り返しにくくした
+- 上部サマリーを「焦点字情報」「字集合/関連字数」「表示モード」「総数/選択/進捗」に整理
+- タイルON/OFF、密度、タイル内グリフプレビュー、一覧バッジ状態を常時見えるステータス行に移動
+- 右ペインの総数・選択数・お気に入り数・制作済み率を常時表示
+- タイル表示 の選択・ダブルクリック挙動は v1.6.0 の仕様を維持
+
+## v1.6.0 タイル表示 追加
+
+この版では、右ペインのタイル表示を `NSTextView` の装飾テキストから分離し、独自のタイルオブジェクト描画エンジンに置き換えています。
+
+- **オブジェクトタイル選択** — クリックで単体選択、Shift/Commandクリックで複数選択。クリックで選択が崩れる問題を回避
+- **ダブルクリック展開** — 選択中の単体/複数タイルを新規 Glyphs タブで展開
+- **リッチなステータス表示** — `★` お気に入り、`●` 制作済み、`○` グリフあり、`–` 未作成をタイル内バッジとして描画
+- **タイル内グリフプレビュー** — オプションON時、制作済みグリフはタイル内に実アウトラインの小プレビューを表示
+- **テキスト表示フォールバック** — カスタムビュー生成に失敗した場合やタイル表示OFF時は従来のテキスト表示へ戻る
+
 ## Features
 
 - **Character Decomposition** — Visualize the component tree structure of any Chinese character
@@ -105,7 +179,7 @@ Download `HanziIDSComponentExplorer.glyphsPlugin` and double-click to install.
 
 ## Usage
 
-1. Open *Window > HanziIDSComponentExplorer*
+1. Open *Window > Hanzi Component Explorer*
 2. Enter a Chinese character (e.g., "森") or Unicode (e.g., "68EE")
 3. View decomposition, sister characters, and derived characters
 4. Enter multiple components (e.g. "氵木") to find characters containing all of them: the middle column lists the input components, the right column lists the matches; stroke filtering then uses the sum of the components' stroke counts as the baseline (e.g. "氵木" = 7 strokes)
