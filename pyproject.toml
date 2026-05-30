@@ -1,6 +1,6 @@
 [project]
 name = "hanzi-component-explorer-rsplus"
-version = "1.6.4-gui"
+version = "1.6.4+RSplus"
 description = "Glyphs plugin for exploring Chinese character IDS components"
 readme = "README.md"
 license = {text = "Apache-2.0"}
