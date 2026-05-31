@@ -1440,21 +1440,26 @@ class HanziComponentSearchTool:
                     char_color = normal_text
                     char_label_alpha = 0.82
 
-                preview_img = self._tile_preview_image(char, cfg["preview_size"])
+                preview_margin_x = 7
+                preview_top = 13
+                preview_bottom = 4
+                preview_size = min(int(w - preview_margin_x * 2), int(h - preview_top - preview_bottom))
+                preview_img = self._tile_preview_image(char, preview_size)
                 if preview_img is not None:
-                    label_size = max(13, cfg["char_size"] - 6)
-                    label_h = max(20, label_size + 6)
-                    image_gap = 1
-                    image_available_h = max(12, h - 22 - label_h - image_gap)
-                    image_size = min(cfg["preview_size"], int(image_available_h), int(w - 18))
-                    img_x = x + (w - image_size) / 2.0
-                    img_y = y + 18
-                    self._draw_image_in_rect(preview_img, NSMakeRect(img_x, img_y, image_size, image_size))
+                    img_x = x + (w - preview_size) / 2.0
+                    img_y = y + preview_top
+                    self._draw_image_in_rect(preview_img, NSMakeRect(img_x, img_y, preview_size, preview_size))
+
+                    # Keep the fallback character as a small edge label so it does not
+                    # compete with the larger real-glyph preview.
+                    label_size = max(9, min(12, cfg["badge_size"] - 1))
+                    label_h = label_size + 5
                     self._draw_text_in_rect(
                         char,
-                        NSMakeRect(x + 5, y + h - label_h - 3, w - 10, label_h),
+                        NSMakeRect(x + 6, y + h - label_h - 3, w - 12, label_h),
                         self.get_font_for_char(char, label_size),
                         self._with_alpha(char_color, char_label_alpha),
+                        align="right",
                     )
                 else:
                     char_size = cfg["char_size"]
