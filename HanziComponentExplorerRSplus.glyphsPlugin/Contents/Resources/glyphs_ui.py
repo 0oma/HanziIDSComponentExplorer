@@ -1384,10 +1384,12 @@ class HanziComponentSearchTool:
                 elif self.tile_color_labels_enabled:
                     if color_label is not None:
                         fill = self._with_alpha(color_label, 0.16)
-                        stroke = self._with_alpha(color_label, 0.62)
+                        stroke_alpha = 0.72 if status_key in (STATUS_DESIGNED, STATUS_EXISTS) else 0.62
+                        stroke = self._with_alpha(color_label, stroke_alpha)
                     else:
                         fill = self._with_alpha(base_bg, 0.72)
-                        stroke = self._with_alpha(neutral_status_color, 0.18)
+                        neutral_alpha = 0.28 if status_key in (STATUS_DESIGNED, STATUS_EXISTS) else 0.18
+                        stroke = self._with_alpha(neutral_status_color, neutral_alpha)
                     line_width = 1.6 if status_key == STATUS_DESIGNED else 0.6
                 else:
                     if status_key == STATUS_DESIGNED:
@@ -1405,16 +1407,7 @@ class HanziComponentSearchTool:
                 rect = NSMakeRect(x, y, w, h)
                 self._draw_rounded_rect(rect, fill, stroke, line_width=line_width, radius=cfg["corner"])
 
-                if color_label is not None:
-                    try:
-                        color_label.setFill()
-                        NSBezierPath.bezierPathWithRoundedRect_xRadius_yRadius_(
-                            NSMakeRect(x + 8, y + 4, w - 16, 3), 1.5, 1.5
-                        ).fill()
-                    except Exception:
-                        pass
-
-                badge_y = y + (9 if self.tile_color_labels_enabled else 5)
+                badge_y = y + 5
                 badge_rect = NSMakeRect(x + 5, badge_y, cfg["badge_size"] + 8, cfg["badge_size"] + 5)
                 self._draw_rounded_rect(
                     badge_rect,
@@ -1438,30 +1431,38 @@ class HanziComponentSearchTool:
                         colors[STATUS_FAVORITE],
                     )
 
+                char_label_alpha = 1.0
+                if is_current:
+                    char_color = colors["accent"]
+                elif self.tile_color_labels_enabled and status_key == STATUS_MISSING:
+                    char_color = self._with_alpha(normal_text, 0.42)
+                else:
+                    char_color = normal_text
+                    char_label_alpha = 0.82
+
                 preview_img = self._tile_preview_image(char, cfg["preview_size"])
                 if preview_img is not None:
-                    img_x = x + (w - cfg["preview_size"]) / 2.0
+                    label_size = max(13, cfg["char_size"] - 6)
+                    label_h = max(20, label_size + 6)
+                    image_gap = 1
+                    image_available_h = max(12, h - 22 - label_h - image_gap)
+                    image_size = min(cfg["preview_size"], int(image_available_h), int(w - 18))
+                    img_x = x + (w - image_size) / 2.0
                     img_y = y + 18
-                    self._draw_image_in_rect(preview_img, NSMakeRect(img_x, img_y, cfg["preview_size"], cfg["preview_size"]))
-                    preview_label_alpha = 0.42 if self.tile_color_labels_enabled and status_key == STATUS_MISSING else 0.78
-                    preview_label_color = self._with_alpha(normal_text, preview_label_alpha)
+                    self._draw_image_in_rect(preview_img, NSMakeRect(img_x, img_y, image_size, image_size))
                     self._draw_text_in_rect(
                         char,
-                        NSMakeRect(x + 4, y + h - 21, w - 8, 18),
-                        self.get_font_for_char(char, max(12, cfg["char_size"] - 10)),
-                        preview_label_color,
+                        NSMakeRect(x + 5, y + h - label_h - 3, w - 10, label_h),
+                        self.get_font_for_char(char, label_size),
+                        self._with_alpha(char_color, char_label_alpha),
                     )
                 else:
-                    if is_current:
-                        char_color = colors["accent"]
-                    elif self.tile_color_labels_enabled and status_key == STATUS_MISSING:
-                        char_color = self._with_alpha(normal_text, 0.42)
-                    else:
-                        char_color = normal_text
+                    char_size = cfg["char_size"]
+                    char_rect_y = y + max(16, (h - char_size) / 2.0 + 2)
                     self._draw_text_in_rect(
                         char,
-                        NSMakeRect(x + 4, y + (h - cfg["char_size"]) / 2.0 + 3, w - 8, cfg["char_size"] + 10),
-                        self.get_font_for_char(char, cfg["char_size"]),
+                        NSMakeRect(x + 5, char_rect_y, w - 10, char_size + 12),
+                        self.get_font_for_char(char, char_size),
                         char_color,
                     )
 
