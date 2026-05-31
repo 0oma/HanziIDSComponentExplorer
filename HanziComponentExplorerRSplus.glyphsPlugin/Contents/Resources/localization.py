@@ -313,6 +313,12 @@ STRINGS = {
         "zh-Hans": "磁贴内预览",
         "ja": "タイル内プレビュー",
     },
+    "menu_tile_color_labels": {
+        "en": "Color Labels in Tiles",
+        "zh-Hant": "磁磚顯示顏色標籤",
+        "zh-Hans": "磁贴显示颜色标签",
+        "ja": "タイルにカラーラベルを表示",
+    },
     "menu_list_preview": {
         "en": "List Badges",
         "zh-Hant": "列表標記",
@@ -452,6 +458,12 @@ STRINGS = {
         "zh-Hans": "● 已完成 / ○ 已存在 / – 未建立。可右键操作磁贴。",
         "ja": "●制作済み / ○グリフあり / –未作成。タイルは右クリックで操作できます。",
     },
+    "summary_hint_color_labels": {
+        "en": "Color bar/background = Glyphs color label; neutral ●/○/– = design status. Right-click tiles for actions.",
+        "zh-Hant": "色條/底色 = Glyphs 顏色標籤；中性色 ●/○/– = 設計狀態。可右鍵操作磁磚。",
+        "zh-Hans": "色条/底色 = Glyphs 颜色标签；中性色 ●/○/– = 设计状态。可右键操作磁贴。",
+        "ja": "色バー/背景 = Glyphsカラーラベル、中性色の●/○/– = 制作状態。タイルは右クリックで操作できます。",
+    },
     "summary_multi_hint": {
         "en": "Showing characters that contain all selected components.",
         "zh-Hant": "顯示同時包含所有部件的字符。",
@@ -529,6 +541,18 @@ STRINGS = {
         "zh-Hant": "已隱藏磁磚內預覽。",
         "zh-Hans": "已隐藏磁贴内预览。",
         "ja": "タイル内プレビューを非表示にしました。",
+    },
+    "summary_tile_color_labels_enabled": {
+        "en": "Tile color labels are shown.",
+        "zh-Hant": "已在磁磚顯示顏色標籤。",
+        "zh-Hans": "已在磁贴显示颜色标签。",
+        "ja": "タイルにカラーラベルを表示します。",
+    },
+    "summary_tile_color_labels_disabled": {
+        "en": "Tile color labels are hidden; status colors are shown.",
+        "zh-Hant": "已隱藏磁磚顏色標籤，改顯示狀態色。",
+        "zh-Hans": "已隐藏磁贴颜色标签，改显示状态色。",
+        "ja": "カラーラベルを非表示にし、従来の状態色を表示します。",
     },
     "summary_list_preview_enabled": {
         "en": "List badges are shown.",
@@ -682,6 +706,18 @@ STRINGS = {
         "zh-Hans": "预览关",
         "ja": "プレビューなし",
     },
+    "summary_color_labels_on": {
+        "en": "Color labels on",
+        "zh-Hant": "顏色標籤開",
+        "zh-Hans": "颜色标签开",
+        "ja": "カラーラベルあり",
+    },
+    "summary_color_labels_off": {
+        "en": "Status colors",
+        "zh-Hant": "狀態色",
+        "zh-Hans": "状态色",
+        "ja": "状態色",
+    },
     "summary_list_preview_on": {
         "en": "Badges on",
         "zh-Hant": "列表標記開",
@@ -713,16 +749,22 @@ STRINGS = {
         "ja": "表示 {related} · ●{designed} ○{exists} –{missing} · {progress}%\n字集合 {charset} · お気に入り {favorites}",
     },
     "summary_mode_line": {
-        "en": "{tile} · {density} · {filter} · {glyphPreview}",
-        "zh-Hant": "{tile} · {density} · {filter} · {glyphPreview}",
-        "zh-Hans": "{tile} · {density} · {filter} · {glyphPreview}",
-        "ja": "{tile} · {density} · {filter} · {glyphPreview}",
+        "en": "{tile} · {density} · {filter} · {glyphPreview} · {colorLabels}",
+        "zh-Hant": "{tile} · {density} · {filter} · {glyphPreview} · {colorLabels}",
+        "zh-Hans": "{tile} · {density} · {filter} · {glyphPreview} · {colorLabels}",
+        "ja": "{tile} · {density} · {filter} · {glyphPreview} · {colorLabels}",
     },
     "summary_status_line": {
         "en": "Selected {selected} · Total {total} · ★{favorite} · ● designed / ○ exists / – missing",
         "zh-Hant": "已選 {selected} · 總數 {total} · ★{favorite} · ● 已完成 / ○ 已存在 / – 未建立",
         "zh-Hans": "已选 {selected} · 总数 {total} · ★{favorite} · ● 已完成 / ○ 已存在 / – 未建立",
         "ja": "選択 {selected} · 総数 {total} · ★{favorite} · ●制作済み / ○グリフあり / –未作成",
+    },
+    "summary_status_line_color_labels": {
+        "en": "Selected {selected} · Total {total} · ★{favorite} · neutral ● designed / ○ exists / – missing",
+        "zh-Hant": "已選 {selected} · 總數 {total} · ★{favorite} · 中性 ● 已完成 / ○ 已存在 / – 未建立",
+        "zh-Hans": "已选 {selected} · 总数 {total} · ★{favorite} · 中性 ● 已完成 / ○ 已存在 / – 未建立",
+        "ja": "選択 {selected} · 総数 {total} · ★{favorite} · 中性色 ●制作済み / ○グリフあり / –未作成",
     },
 }
 

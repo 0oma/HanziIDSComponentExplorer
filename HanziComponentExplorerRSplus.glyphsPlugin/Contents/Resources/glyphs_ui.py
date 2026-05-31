@@ -154,6 +154,9 @@ class _FilterMenuHandlerBase(NSObject):
     def toggleTileGlyphPreview_(self, sender):
         self.tool.toggle_tile_glyph_preview(None)
 
+    def toggleTileColorLabels_(self, sender):
+        self.tool.toggle_tile_color_labels(None)
+
     def toggleDesignedOnly_(self, sender):
         self.tool.toggle_designed_only(None)
 
@@ -347,6 +350,7 @@ class HanziComponentSearchTool:
         self.tile_view_enabled = bool(self.settings.get("tileViewEnabled", True))
         self.list_preview_enabled = bool(self.settings.get("listPreviewEnabled", True))
         self.tile_glyph_preview_enabled = bool(self.settings.get("tileGlyphPreviewEnabled", False))
+        self.tile_color_labels_enabled = bool(self.settings.get("tileColorLabelsEnabled", False))
         self.show_designed_only = bool(self.settings.get("showDesignedOnly", False))
         self.related_tile_items = []
         self.related_tile_selection = set()
@@ -917,9 +921,43 @@ class HanziComponentSearchTool:
     def _glyph_status_key(self, char):
         return self._glyph_status_payload(char).get("status", STATUS_MISSING)
 
+    def _glyph_color_id(self, char):
+        """Return the Glyphs color-label id for char, preserving color 0 as valid."""
+        try:
+            color_id = self._raw_glyph_status(char).get("color")
+            if color_id is None:
+                return None
+            return int(color_id)
+        except Exception:
+            return None
+
+    def _color_label_nscolor(self, color_id):
+        """Convert a Glyphs color-label id to NSColor; color 0 is a valid label."""
+        try:
+            color_id = int(color_id)
+        except Exception:
+            return None
+        rgba = GLYPH_COLOR_MAP.get(color_id)
+        if rgba is None:
+            return None
+        try:
+            return NSColor.colorWithCalibratedRed_green_blue_alpha_(*rgba)
+        except Exception:
+            return None
+
+    def _glyph_label_color(self, char):
+        """Return an NSColor for a Glyphs color label, or None when unlabeled."""
+        return self._color_label_nscolor(self._glyph_color_id(char))
+
     def _tile_status_payload(self, char):
         payload = self._glyph_status_payload(char)
-        return {"status": payload["status"], "marker": payload["marker"], "favorite": payload["favorite"]}
+        color_id = self._glyph_color_id(char)
+        return {
+            "status": payload["status"],
+            "marker": payload["marker"],
+            "favorite": payload["favorite"],
+            "color": color_id,
+        }
 
     def _apply_related_status_filter(self, text):
         """右ペイン用の状態フィルター。現在は「制作済みのみ」を提供する。"""
@@ -977,6 +1015,7 @@ class HanziComponentSearchTool:
                             "status": status_payload["status"],
                             "marker": status_payload["marker"],
                             "favorite": status_payload["favorite"],
+                            "color": status_payload.get("color"),
                             "rect": (0, 0, 0, 0),
                         })
                         order += 1
@@ -1317,14 +1356,41 @@ class HanziComponentSearchTool:
             elif kind == "tile":
                 char = item.get("char", "")
                 status_key = item.get("status", "missing")
+                marker = item.get("marker", "–")
                 is_selected = idx in self.related_tile_selection
                 is_current = char == getattr(self, "current_char", None)
                 is_favorite = item.get("favorite", False)
+                color_label = self._color_label_nscolor(item.get("color")) if self.tile_color_labels_enabled else None
                 status_color = colors[STATUS_FAVORITE] if is_favorite else colors.get(status_key, colors[STATUS_MISSING])
+                neutral_status_color = self._semantic_color("secondaryLabelColor", "labelColor")
+                if self.tile_color_labels_enabled:
+                    # Color-label mode: Glyphs labels own the tile color; the status chip
+                    # stays uniformly neutral so status differences do not masquerade as
+                    # color labels. Status emphasis is applied to the tile panel instead.
+                    status_badge_text = colors[STATUS_FAVORITE] if is_favorite else neutral_status_color
+                    status_badge_fill = self._with_alpha(window_bg, 0.82)
+                    status_badge_stroke = self._with_alpha(neutral_status_color, 0.26)
+                    status_badge_line_width = 0.45
+                else:
+                    status_badge_text = status_color
+                    status_badge_fill = self._with_alpha(status_color, 0.12)
+                    status_badge_stroke = self._with_alpha(status_color, 0.32)
+                    status_badge_line_width = 0.45
+
                 if is_selected:
                     fill = selected_bg
                     stroke = selected_stroke
                     line_width = 2.0
+                elif self.tile_color_labels_enabled:
+                    if color_label is not None:
+                        fill = self._with_alpha(color_label, 0.16)
+                        stroke_alpha = 0.72 if status_key in (STATUS_DESIGNED, STATUS_EXISTS) else 0.62
+                        stroke = self._with_alpha(color_label, stroke_alpha)
+                    else:
+                        fill = self._with_alpha(base_bg, 0.72)
+                        neutral_alpha = 0.28 if status_key in (STATUS_DESIGNED, STATUS_EXISTS) else 0.18
+                        stroke = self._with_alpha(neutral_status_color, neutral_alpha)
+                    line_width = 1.6 if status_key == STATUS_DESIGNED else 0.6
                 else:
                     if status_key == STATUS_DESIGNED:
                         fill = self._with_alpha(colors[STATUS_DESIGNED], 0.075)
@@ -1336,25 +1402,25 @@ class HanziComponentSearchTool:
                     line_width = 0.6
                 if is_current and not is_selected:
                     stroke = current_stroke
-                    line_width = 1.2
+                    line_width = max(line_width, 1.2)
 
                 rect = NSMakeRect(x, y, w, h)
                 self._draw_rounded_rect(rect, fill, stroke, line_width=line_width, radius=cfg["corner"])
 
-                # status badge
-                badge_rect = NSMakeRect(x + 5, y + 5, cfg["badge_size"] + 8, cfg["badge_size"] + 5)
+                badge_y = y + 5
+                badge_rect = NSMakeRect(x + 5, badge_y, cfg["badge_size"] + 8, cfg["badge_size"] + 5)
                 self._draw_rounded_rect(
                     badge_rect,
-                    self._with_alpha(status_color, 0.12),
-                    self._with_alpha(status_color, 0.32),
-                    line_width=0.45,
+                    status_badge_fill,
+                    status_badge_stroke,
+                    line_width=status_badge_line_width,
                     radius=cfg["badge_size"] / 2.0,
                 )
                 self._draw_text_in_rect(
-                    item.get("marker", "–"),
+                    marker,
                     NSMakeRect(badge_rect.origin.x, badge_rect.origin.y + 1, badge_rect.size.width, badge_rect.size.height),
                     NSFont.boldSystemFontOfSize_(cfg["badge_size"]),
-                    status_color,
+                    status_badge_text,
                 )
 
                 if is_favorite:
@@ -1365,28 +1431,48 @@ class HanziComponentSearchTool:
                         colors[STATUS_FAVORITE],
                     )
 
-                preview_img = self._tile_preview_image(char, cfg["preview_size"])
+                char_label_alpha = 1.0
+                if is_current:
+                    char_color = colors["accent"]
+                elif self.tile_color_labels_enabled and status_key == STATUS_MISSING:
+                    char_color = self._with_alpha(normal_text, 0.42)
+                else:
+                    char_color = normal_text
+                    char_label_alpha = 0.82
+
+                preview_margin_x = 7
+                preview_top = 13
+                preview_bottom = 4
+                preview_size = min(int(w - preview_margin_x * 2), int(h - preview_top - preview_bottom))
+                preview_img = self._tile_preview_image(char, preview_size)
                 if preview_img is not None:
-                    img_x = x + (w - cfg["preview_size"]) / 2.0
-                    img_y = y + 18
-                    self._draw_image_in_rect(preview_img, NSMakeRect(img_x, img_y, cfg["preview_size"], cfg["preview_size"]))
+                    img_x = x + (w - preview_size) / 2.0
+                    img_y = y + preview_top
+                    self._draw_image_in_rect(preview_img, NSMakeRect(img_x, img_y, preview_size, preview_size))
+
+                    # Keep the fallback character as a small edge label so it does not
+                    # compete with the larger real-glyph preview.
+                    label_size = max(9, min(12, cfg["badge_size"] - 1))
+                    label_h = label_size + 5
                     self._draw_text_in_rect(
                         char,
-                        NSMakeRect(x + 4, y + h - 21, w - 8, 18),
-                        self.get_font_for_char(char, max(12, cfg["char_size"] - 10)),
-                        self._with_alpha(normal_text, 0.78),
+                        NSMakeRect(x + 6, y + h - label_h - 3, w - 12, label_h),
+                        self.get_font_for_char(char, label_size),
+                        self._with_alpha(char_color, char_label_alpha),
+                        align="right",
                     )
                 else:
+                    char_size = cfg["char_size"]
+                    char_rect_y = y + max(16, (h - char_size) / 2.0 + 2)
                     self._draw_text_in_rect(
                         char,
-                        NSMakeRect(x + 4, y + (h - cfg["char_size"]) / 2.0 + 3, w - 8, cfg["char_size"] + 10),
-                        self.get_font_for_char(char, cfg["char_size"]),
-                        colors["accent"] if is_current else normal_text,
+                        NSMakeRect(x + 5, char_rect_y, w - 10, char_size + 12),
+                        self.get_font_for_char(char, char_size),
+                        char_color,
                     )
 
-                # subtle bottom status line
                 try:
-                    status_color.setFill()
+                    (color_label or status_color).setFill()
                     NSBezierPath.bezierPathWithRoundedRect_xRadius_yRadius_(
                         NSMakeRect(x + 8, y + h - 6, w - 16, 2), 1, 1
                     ).fill()
@@ -1478,17 +1564,20 @@ class HanziComponentSearchTool:
         density = self._tile_density_config()["label"]
         tile_mode = L("summary_tile_on") if self.tile_view_enabled else L("summary_tile_off")
         glyph_preview = L("summary_preview_on") if self.tile_glyph_preview_enabled else L("summary_preview_off")
+        color_labels = L("summary_color_labels_on") if self.tile_color_labels_enabled else L("summary_color_labels_off")
         status_filter = L("summary_filter_designed_only") if self.show_designed_only else L("summary_filter_all")
         return L("summary_mode_line").format(
             tile=tile_mode,
             density=density,
             glyphPreview=glyph_preview,
+            colorLabels=color_labels,
             filter=status_filter,
         )
 
     def _tile_legend_text(self):
         counts = self._related_status_counts()
-        return L("summary_status_line").format(
+        status_line_key = "summary_status_line_color_labels" if self.tile_color_labels_enabled else "summary_status_line"
+        return L(status_line_key).format(
             total=counts["total"],
             designed=counts[STATUS_DESIGNED],
             exists=counts[STATUS_EXISTS],
@@ -1560,7 +1649,7 @@ class HanziComponentSearchTool:
         if result_count is None:
             result_count = self.last_result_count
         if hint is None:
-            hint = L("summary_hint")
+            hint = L("summary_hint_color_labels") if self.tile_color_labels_enabled else L("summary_hint")
         if char:
             strokes = self.core.get_stroke_count(char)
             strokes_text = str(strokes) if strokes is not None else "—"
@@ -2016,6 +2105,15 @@ class HanziComponentSearchTool:
             hint=L("summary_tile_glyph_preview_enabled") if self.tile_glyph_preview_enabled else L("summary_tile_glyph_preview_disabled")
         )
 
+    def toggle_tile_color_labels(self, sender):
+        self.tile_color_labels_enabled = not self.tile_color_labels_enabled
+        self.settings.set("tileColorLabelsEnabled", self.tile_color_labels_enabled)
+        self._invalidate_status_cache()
+        self._refresh_related_view()
+        self._refresh_summary_panel(
+            hint=L("summary_tile_color_labels_enabled") if self.tile_color_labels_enabled else L("summary_tile_color_labels_disabled")
+        )
+
     def toggle_list_preview(self, sender):
         self.list_preview_enabled = not self.list_preview_enabled
         self.settings.set("listPreviewEnabled", self.list_preview_enabled)
@@ -2084,6 +2182,13 @@ class HanziComponentSearchTool:
         tile_preview_item.setTarget_(self.filterMenuHandler)
         tile_preview_item.setState_(NSOnState if self.tile_glyph_preview_enabled else NSOffState)
         menu.addItem_(tile_preview_item)
+
+        tile_color_item = NSMenuItem.alloc().initWithTitle_action_keyEquivalent_(
+            L("menu_tile_color_labels"), "toggleTileColorLabels:", ""
+        )
+        tile_color_item.setTarget_(self.filterMenuHandler)
+        tile_color_item.setState_(NSOnState if self.tile_color_labels_enabled else NSOffState)
+        menu.addItem_(tile_color_item)
 
         preview_item = NSMenuItem.alloc().initWithTitle_action_keyEquivalent_(
             L("menu_list_preview"), "toggleListPreview:", ""
@@ -3307,7 +3412,9 @@ class HanziComponentSearchTool:
         """Right pane renderer with tile/status styling.
 
         Tile mode renders each related character as a two-glyph token: status marker + character.
-        The marker carries status color, while the character gets a soft semantic background.
+        By default this keeps the legacy status colors. When the color-label option
+        is enabled, Glyphs color labels tint the character background and status
+        markers switch to neutral contrast/opacity styling.
         """
         if not text:
             return NSAttributedString.alloc().initWithString_("")
@@ -3327,19 +3434,29 @@ class HanziComponentSearchTool:
         favorite_color = self._semantic_color("systemOrangeColor", "labelColor")
         designed_color = self._semantic_color("systemGreenColor", "labelColor")
         exists_color = self._semantic_color("systemBlueColor", "labelColor")
+        neutral_marker_color = self._semantic_color("secondaryLabelColor", "labelColor")
         missing_color = self._semantic_color("tertiaryLabelColor", "secondaryLabelColor")
         accent_color = self._semantic_color("controlAccentColor", "systemBlueColor")
         designed_bg = self._semantic_color("selectedTextBackgroundColor", "controlBackgroundColor")
         exists_bg = self._semantic_color("textBackgroundColor", "controlBackgroundColor")
         missing_bg = self._semantic_color("controlBackgroundColor", "windowBackgroundColor")
 
-        marker_colors = {
-            "★": favorite_color,
-            "●": designed_color,
-            "○": exists_color,
-            "–": missing_color,
-            "-": missing_color,
-        }
+        if self.tile_color_labels_enabled:
+            marker_colors = {
+                "★": favorite_color,
+                "●": neutral_marker_color,
+                "○": neutral_marker_color,
+                "–": missing_color,
+                "-": missing_color,
+            }
+        else:
+            marker_colors = {
+                "★": favorite_color,
+                "●": designed_color,
+                "○": exists_color,
+                "–": missing_color,
+                "-": missing_color,
+            }
 
         def append(piece, attrs):
             result.appendAttributedString_(
@@ -3383,7 +3500,8 @@ class HanziComponentSearchTool:
                     if ch in marker_colors and i + 1 < len(line) and self.core.is_valid_character(line[i + 1]):
                         marker = ch
                         tile_char = line[i + 1]
-                        status = self.adapter.get_glyph_design_status(self.adapter.get_current_font(), tile_char)
+                        status = self._raw_glyph_status(tile_char)
+                        color_label = self._glyph_label_color(tile_char) if self.tile_color_labels_enabled else None
                         marker_attrs = dict(base)
                         marker_attrs.update({
                             NSFontAttributeName: marker_font,
@@ -3393,11 +3511,21 @@ class HanziComponentSearchTool:
                         char_attrs = dict(base)
                         char_attrs.update({
                             NSFontAttributeName: self.get_font_for_char(tile_char, size),
-                            NSForegroundColorAttributeName: favorite_color if tile_char in self.favorite_chars else NSColor.labelColor(),
+                            NSForegroundColorAttributeName: (
+                                favorite_color
+                                if tile_char in self.favorite_chars
+                                else self._with_alpha(NSColor.labelColor(), 0.42)
+                                if self.tile_color_labels_enabled and not status.get("exists")
+                                else NSColor.labelColor()
+                            ),
                             NSKernAttributeName: 0.4,
                         })
                         if self.tile_view_enabled:
-                            if status.get("designed"):
+                            if self.tile_color_labels_enabled:
+                                char_attrs[NSBackgroundColorAttributeName] = (
+                                    self._with_alpha(color_label, 0.28) if color_label is not None else missing_bg
+                                )
+                            elif status.get("designed"):
                                 char_attrs[NSBackgroundColorAttributeName] = designed_bg
                             elif status.get("exists"):
                                 char_attrs[NSBackgroundColorAttributeName] = exists_bg
@@ -3412,14 +3540,30 @@ class HanziComponentSearchTool:
 
                     attrs = dict(base)
                     if self.core.is_valid_character(ch):
-                        status = self.adapter.get_glyph_design_status(self.adapter.get_current_font(), ch)
+                        status = self._raw_glyph_status(ch)
+                        color_label = self._glyph_label_color(ch) if self.tile_color_labels_enabled else None
                         attrs.update({
                             NSFontAttributeName: self.get_font_for_char(ch, size),
-                            NSForegroundColorAttributeName: favorite_color if ch in self.favorite_chars else NSColor.labelColor(),
+                            NSForegroundColorAttributeName: (
+                                favorite_color
+                                if ch in self.favorite_chars
+                                else self._with_alpha(NSColor.labelColor(), 0.42)
+                                if self.tile_color_labels_enabled and not status.get("exists")
+                                else NSColor.labelColor()
+                            ),
                             NSKernAttributeName: 0.8,
                         })
                         if self.tile_view_enabled:
-                            attrs[NSBackgroundColorAttributeName] = designed_bg if status.get("designed") else missing_bg
+                            if self.tile_color_labels_enabled:
+                                attrs[NSBackgroundColorAttributeName] = (
+                                    self._with_alpha(color_label, 0.28) if color_label is not None else missing_bg
+                                )
+                            elif status.get("designed"):
+                                attrs[NSBackgroundColorAttributeName] = designed_bg
+                            elif status.get("exists"):
+                                attrs[NSBackgroundColorAttributeName] = exists_bg
+                            else:
+                                attrs[NSBackgroundColorAttributeName] = missing_bg
                     else:
                         attrs.update({NSFontAttributeName: system_font, NSForegroundColorAttributeName: label_color})
                     append(ch, attrs)
