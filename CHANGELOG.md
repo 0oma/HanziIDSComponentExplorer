@@ -5,6 +5,24 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.7.0+RSplus] - 2026-05-31
+
+### Added
+
+- Added an optional tile color-label display mode that reflects Glyphs color labels in related-character tiles while keeping the previous status-color tile display as the default.
+- Added a persistent menu toggle for color-label tile display and summary/help text that identifies the active tile color mode.
+
+### Changed
+
+- Refined color-label tile rendering so color labels tint tile panels, status markers remain neutral, designed glyphs receive a stronger panel border, and missing/unadded characters are subdued.
+- Improved tile glyph-preview layout so real font data is displayed larger, with the fallback character label moved to a small bottom-edge position.
+
+### Verification
+
+- Core test suite passed.
+- Main plugin Python files syntax-checked.
+
+
 ## [1.6.4+RSplus] - 2026-05-30
 
 ### Changed
