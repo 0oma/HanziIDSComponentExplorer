@@ -761,10 +761,10 @@ STRINGS = {
         "ja": "選択 {selected} · 総数 {total} · ★{favorite} · ●制作済み / ○グリフあり / –未作成",
     },
     "summary_status_line_color_labels": {
-        "en": "Selected {selected} · Total {total} · ★{favorite} · neutral ● designed / faint ○ exists / – missing",
-        "zh-Hant": "已選 {selected} · 總數 {total} · ★{favorite} · 中性 ● 已完成 / 淡 ○ 已存在 / – 未建立",
-        "zh-Hans": "已选 {selected} · 总数 {total} · ★{favorite} · 中性 ● 已完成 / 淡 ○ 已存在 / – 未建立",
-        "ja": "選択 {selected} · 総数 {total} · ★{favorite} · 中性色 ●制作済み / 薄い○グリフあり / –未作成",
+        "en": "Selected {selected} · Total {total} · ★{favorite} · neutral ● designed / ○ exists / – missing",
+        "zh-Hant": "已選 {selected} · 總數 {total} · ★{favorite} · 中性 ● 已完成 / ○ 已存在 / – 未建立",
+        "zh-Hans": "已选 {selected} · 总数 {total} · ★{favorite} · 中性 ● 已完成 / ○ 已存在 / – 未建立",
+        "ja": "選択 {selected} · 総数 {total} · ★{favorite} · 中性色 ●制作済み / ○グリフあり / –未作成",
     },
 }
 
